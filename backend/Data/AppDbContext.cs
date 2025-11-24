@@ -7,7 +7,7 @@ public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) {}
 
-        public DbSet<Business> Businesses => Set<Business>();
+    public DbSet<Business> Businesses => Set<Business>();
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Service> Services => Set<Service>();
@@ -35,6 +35,10 @@ public class AppDbContext : DbContext
             .HasMany(b => b.Products)
             .WithOne(p => p.Business)
             .HasForeignKey(p => p.BusinessId);
+
+        modelBuilder.Entity<Employee>()
+            .HasIndex(e => e.Email)
+            .IsUnique();
 
         // One Order has many Items
         modelBuilder.Entity<Order>()
