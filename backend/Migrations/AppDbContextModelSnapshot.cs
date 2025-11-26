@@ -210,6 +210,9 @@ namespace backend.Migrations
 
                     b.HasIndex("BusinessId");
 
+                    b.HasIndex("Email")
+                        .IsUnique();
+
                     b.ToTable("Employees");
                 });
 
@@ -369,6 +372,9 @@ namespace backend.Migrations
 
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
 
                     b.Property<int>("TaxId")
                         .HasColumnType("integer");

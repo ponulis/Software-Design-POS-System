@@ -7,7 +7,7 @@ public class Employee
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
-    public string Role { get; set; } = "User"; // e.g. "cashier", "admin" maybe we should use enum
+    public string Role { get; set; } = "User"; // e.g. "cashier", "admin" maybe we don't need it
 
     
     public Business Business { get; set; } = default!;
