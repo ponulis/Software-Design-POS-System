@@ -1,26 +1,25 @@
 {
   "format": 1,
   "restore": {
-    "/home/migla/Documents/Uni/PSP/Software-Design-POS-System/backend/backend.csproj": {}
+    "C:\\Users\\povil\\Desktop\\Universitetass\\3 Kursas\\POS\\Software-Design-POS-System\\backend\\backend.csproj": {}
   },
   "projects": {
-    "/home/migla/Documents/Uni/PSP/Software-Design-POS-System/backend/backend.csproj": {
+    "C:\\Users\\povil\\Desktop\\Universitetass\\3 Kursas\\POS\\Software-Design-POS-System\\backend\\backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/migla/Documents/Uni/PSP/Software-Design-POS-System/backend/backend.csproj",
+        "projectUniqueName": "C:\\Users\\povil\\Desktop\\Universitetass\\3 Kursas\\POS\\Software-Design-POS-System\\backend\\backend.csproj",
         "projectName": "backend",
-        "projectPath": "/home/migla/Documents/Uni/PSP/Software-Design-POS-System/backend/backend.csproj",
-        "packagesPath": "/home/migla/.nuget/packages/",
-        "outputPath": "/home/migla/Documents/Uni/PSP/Software-Design-POS-System/backend/obj/",
+        "projectPath": "C:\\Users\\povil\\Desktop\\Universitetass\\3 Kursas\\POS\\Software-Design-POS-System\\backend\\backend.csproj",
+        "packagesPath": "C:\\Users\\povil\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\povil\\Desktop\\Universitetass\\3 Kursas\\POS\\Software-Design-POS-System\\backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/home/migla/.nuget/NuGet/NuGet.Config"
+          "C:\\Users\\povil\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
         ],
         "sources": {
-          "/usr/lib/dotnet/library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -39,7 +38,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.100"
+        "SdkAnalysisLevel": "10.0.100"
       },
       "frameworks": {
         "net9.0": {
@@ -61,6 +60,24 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[9.0.10, 9.0.10]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Host.win-x64",
+              "version": "[9.0.10, 9.0.10]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[9.0.10, 9.0.10]"
+            },
+            {
+              "name": "Microsoft.WindowsDesktop.App.Ref",
+              "version": "[9.0.10, 9.0.10]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.AspNetCore.App": {
               "privateAssets": "none"
@@ -69,7 +86,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/lib/dotnet/sdk/9.0.111/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100-rc.2.25502.107/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
