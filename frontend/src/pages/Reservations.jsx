@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import AppointmentsList from "../components/reservations/AppointmentsList";
+import AppointmentsList from "../components/reservations/appointmentsList";
 import AppointmentDetails from "../components/reservations/AppointmentDetails";
 import AddAppointmentModal from "../components/reservations/AddAppointmentModal";
 import RescheduleAppointmentModal from "../components/reservations/RescheduleAppointmentModal";

@@ -35,8 +35,8 @@ export default function Navbar() {
             </NavLink>
           </li>
           <li>
-            <NavLink to="/payments" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
-              Payments
+            <NavLink to="/orders-and-payments" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+              Orders & Payments
             </NavLink>
           </li>
           <li>
