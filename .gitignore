@@ -1,3 +1,22 @@
+
+# Build artifacts
+backend/bin/
+backend/obj/
+
+# Dependencies
+node_modules/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+
+# OS
+.DS_Store
+Thumbs.db
+=======
 # .NET build artifacts
 **/bin/
 **/obj/
