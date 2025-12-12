@@ -33,7 +33,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Address).IsRequired().HasMaxLength(500);
             entity.Property(e => e.ContactEmail).IsRequired().HasMaxLength(255);
-            entity.Property(e => e.PhoneNumber).HasMaxLength(50);
+            entity.Property(e => e.PhoneNumber).IsRequired().HasMaxLength(50);
 
             // Relationship: Business -> Owner (User)
             // Owner is a User, but we use a simple foreign key relationship
