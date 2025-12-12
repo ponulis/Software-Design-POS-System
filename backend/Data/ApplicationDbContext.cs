@@ -159,7 +159,7 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.CustomerName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.CustomerPhone).HasMaxLength(50);
+            entity.Property(e => e.CustomerPhone).IsRequired().HasMaxLength(50);
             entity.Property(e => e.Status).HasConversion<string>();
 
             // Relationship: Appointment -> Business
