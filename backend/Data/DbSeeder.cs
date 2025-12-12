@@ -26,7 +26,7 @@ public static class DbSeeder
             return Convert.ToBase64String(hashedBytes);
         }
 
-        // Create Business
+        // Create Business entity (without OwnerId - will be set after owner is created)
         var business = new Business
         {
             Name = "Sample Beauty Salon",
@@ -37,52 +37,65 @@ public static class DbSeeder
             CreatedAt = DateTime.UtcNow
         };
 
-        context.Businesses.Add(business);
-        context.SaveChanges();
-
-        // Create Owner/Admin User
-        var owner = new User
+        // Temporarily disable FK constraint checking to allow Business insertion with OwnerId = 0
+        context.Database.ExecuteSqlRaw("ALTER TABLE Businesses NOCHECK CONSTRAINT ALL");
+        
+        try
         {
-            BusinessId = business.Id,
-            Name = "John Owner",
-            PasswordHash = HashPassword("admin123"),
-            Phone = "+370 600 00001",
-            Role = "Admin",
-            CreatedAt = DateTime.UtcNow,
-            IsActive = true
-        };
+            // Add Business to context and save to get its Id
+            context.Businesses.Add(business);
+            context.SaveChanges();
 
-        // Create Employee 1
-        var employee1 = new User
+            // Create Owner/Admin User with correct BusinessId
+            var owner = new User
+            {
+                BusinessId = business.Id,
+                Name = "John Owner",
+                PasswordHash = HashPassword("admin123"),
+                Phone = "+370 600 00001",
+                Role = "Admin",
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true
+            };
+
+            // Create Employee 1
+            var employee1 = new User
+            {
+                BusinessId = business.Id,
+                Name = "Jane Employee",
+                PasswordHash = HashPassword("employee123"),
+                Phone = "+370 600 00002",
+                Role = "Employee",
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true
+            };
+
+            // Create Employee 2
+            var employee2 = new User
+            {
+                BusinessId = business.Id,
+                Name = "Bob Manager",
+                PasswordHash = HashPassword("manager123"),
+                Phone = "+370 600 00003",
+                Role = "Manager",
+                CreatedAt = DateTime.UtcNow,
+                IsActive = true
+            };
+
+            // Add all users and save to get owner.Id
+            context.Users.AddRange(owner, employee1, employee2);
+            context.SaveChanges();
+
+            // Now update Business.OwnerId with the actual owner.Id
+            business.OwnerId = owner.Id;
+            context.Businesses.Update(business);
+            context.SaveChanges();
+        }
+        finally
         {
-            BusinessId = business.Id,
-            Name = "Jane Employee",
-            PasswordHash = HashPassword("employee123"),
-            Phone = "+370 600 00002",
-            Role = "Employee",
-            CreatedAt = DateTime.UtcNow,
-            IsActive = true
-        };
-
-        // Create Employee 2
-        var employee2 = new User
-        {
-            BusinessId = business.Id,
-            Name = "Bob Manager",
-            PasswordHash = HashPassword("manager123"),
-            Phone = "+370 600 00003",
-            Role = "Manager",
-            CreatedAt = DateTime.UtcNow,
-            IsActive = true
-        };
-
-        context.Users.AddRange(owner, employee1, employee2);
-        context.SaveChanges();
-
-        // Update business owner
-        business.OwnerId = owner.Id;
-        context.Businesses.Update(business);
-        context.SaveChanges();
+            // Re-enable FK constraint checking
+            context.Database.ExecuteSqlRaw("ALTER TABLE Businesses CHECK CONSTRAINT ALL");
+        }
 
         // Create Products (5 products)
         var products = new List<Product>
