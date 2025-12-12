@@ -49,7 +49,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(500);
-            entity.Property(e => e.Phone).HasMaxLength(50);
+            entity.Property(e => e.Phone).IsRequired().HasMaxLength(50);
             entity.Property(e => e.Role).IsRequired().HasMaxLength(50);
 
             // Relationship: User -> Business
