@@ -44,6 +44,62 @@ public class PaymentService
             throw new InvalidOperationException("Payment amount must be greater than zero");
         }
 
+        // Cash payment specific validation
+        decimal? change = null;
+        decimal? cashReceived = null;
+        if (paymentMethod == PaymentMethod.Cash)
+        {
+            // For cash payments, CashReceived is required
+            if (!request.CashReceived.HasValue)
+            {
+                throw new InvalidOperationException("CashReceived is required for cash payments");
+            }
+
+            cashReceived = request.CashReceived.Value;
+
+            // Validate cash received is positive
+            if (cashReceived <= 0)
+            {
+                throw new InvalidOperationException("Cash received must be greater than zero");
+            }
+
+            // Calculate remaining order balance (considering existing payments)
+            var existingPayments = await _context.Payments
+                .Where(p => p.OrderId == order.Id)
+                .SumAsync(p => p.Amount);
+            var remainingBalance = order.Total - existingPayments;
+
+            // Validate cash received is sufficient
+            if (cashReceived < remainingBalance)
+            {
+                throw new InvalidOperationException($"Insufficient cash. Order total: {order.Total:C}, Existing payments: {existingPayments:C}, Remaining: {remainingBalance:C}, Cash received: {cashReceived:C}");
+            }
+
+            // Calculate change (cashReceived - remainingBalance)
+            // Note: For cash payments, Amount should equal the remaining balance or less
+            if (request.Amount > remainingBalance)
+            {
+                // If amount exceeds remaining balance, adjust it
+                request.Amount = remainingBalance;
+            }
+
+            change = cashReceived - request.Amount;
+        }
+        else
+        {
+            // For non-cash payments, amount should match order total (or remaining balance)
+            var existingPayments = await _context.Payments
+                .Where(p => p.OrderId == order.Id)
+                .SumAsync(p => p.Amount);
+            var remainingBalance = order.Total - existingPayments;
+
+            // Validate amount doesn't exceed remaining balance
+            if (request.Amount > remainingBalance)
+            {
+                throw new InvalidOperationException($"Payment amount ({request.Amount:C}) exceeds remaining balance ({remainingBalance:C})");
+            }
+        }
+
         // Create payment record
         var payment = new Payment
         {
@@ -52,8 +108,12 @@ public class PaymentService
             Amount = request.Amount,
             Method = paymentMethod,
             PaidAt = DateTime.UtcNow,
-            TransactionId = request.TransactionId,
-            AuthorizationCode = request.AuthorizationCode
+            TransactionId = paymentMethod == PaymentMethod.Cash && cashReceived.HasValue 
+                ? cashReceived.Value.ToString("F2") // Store cashReceived in TransactionId for cash payments
+                : request.TransactionId,
+            AuthorizationCode = paymentMethod == PaymentMethod.Cash && change.HasValue
+                ? change.Value.ToString("F2") // Store change in AuthorizationCode for cash payments
+                : request.AuthorizationCode
         };
 
         _context.Payments.Add(payment);
@@ -62,7 +122,7 @@ public class PaymentService
         // Check if order should be marked as Paid
         await UpdateOrderStatusIfFullyPaidAsync(order);
 
-        return MapToPaymentResponse(payment);
+        return MapToPaymentResponse(payment, cashReceived, change);
     }
 
     public async Task<List<PaymentResponse>> GetAllPaymentsAsync(int businessId, int? orderId = null)
@@ -80,7 +140,7 @@ public class PaymentService
             .OrderByDescending(p => p.PaidAt)
             .ToListAsync();
 
-        return payments.Select(MapToPaymentResponse).ToList();
+        return payments.Select(p => MapToPaymentResponse(p)).ToList();
     }
 
     public async Task<PaymentResponse?> GetPaymentByIdAsync(int paymentId, int businessId)
@@ -137,8 +197,29 @@ public class PaymentService
         }
     }
 
-    private PaymentResponse MapToPaymentResponse(Payment payment)
+    private PaymentResponse MapToPaymentResponse(Payment payment, decimal? cashReceived = null, decimal? change = null)
     {
+        // For cash payments, try to extract cashReceived and change from stored fields
+        if (payment.Method == PaymentMethod.Cash)
+        {
+            // If not provided, try to parse from TransactionId and AuthorizationCode
+            if (!cashReceived.HasValue && !string.IsNullOrEmpty(payment.TransactionId))
+            {
+                if (decimal.TryParse(payment.TransactionId, out var parsedCashReceived))
+                {
+                    cashReceived = parsedCashReceived;
+                }
+            }
+
+            if (!change.HasValue && !string.IsNullOrEmpty(payment.AuthorizationCode))
+            {
+                if (decimal.TryParse(payment.AuthorizationCode, out var parsedChange))
+                {
+                    change = parsedChange;
+                }
+            }
+        }
+
         return new PaymentResponse
         {
             Id = payment.Id,
@@ -146,9 +227,13 @@ public class PaymentService
             CreatedBy = payment.CreatedBy,
             Amount = payment.Amount,
             Method = payment.Method.ToString(),
+            CashReceived = cashReceived,
+            Change = change,
             PaidAt = payment.PaidAt,
-            TransactionId = payment.TransactionId,
-            AuthorizationCode = payment.AuthorizationCode
+            // For cash payments, TransactionId and AuthorizationCode are used for cashReceived/change
+            // For other payment methods, they contain actual transaction/authorization codes
+            TransactionId = payment.Method == PaymentMethod.Cash ? null : payment.TransactionId,
+            AuthorizationCode = payment.Method == PaymentMethod.Cash ? null : payment.AuthorizationCode
         };
     }
 }
