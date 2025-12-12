@@ -10,10 +10,12 @@ namespace backend.Services;
 public class OrderService
 {
     private readonly ApplicationDbContext _context;
+    private readonly PricingService _pricingService;
 
-    public OrderService(ApplicationDbContext context)
+    public OrderService(ApplicationDbContext context, PricingService pricingService)
     {
         _context = context;
+        _pricingService = pricingService;
     }
 
     public async Task<OrderResponse?> CreateOrderAsync(CreateOrderRequest request, int businessId, int userId)
@@ -63,8 +65,12 @@ public class OrderService
             order.Items.Add(orderItem);
         }
 
-        // Calculate totals
-        CalculateOrderTotals(order, request);
+        // Calculate totals using PricingService
+        var totals = await _pricingService.CalculateOrderTotalsAsync(order, null);
+        order.SubTotal = totals.SubTotal;
+        order.Tax = totals.Tax;
+        order.Discount = request.Discount ?? totals.Discount; // Use provided discount or calculated
+        // Total is calculated property: SubTotal - Discount + Tax
 
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
@@ -165,25 +171,14 @@ public class OrderService
             }
         }
 
-        // Recalculate totals
-        if (request.SubTotal.HasValue)
-        {
-            order.SubTotal = request.SubTotal.Value;
-        }
-        else
-        {
-            order.SubTotal = order.Items.Sum(i => i.Price * i.Quantity);
-        }
-
-        if (request.Discount.HasValue)
-        {
-            order.Discount = request.Discount.Value;
-        }
-
-        if (request.Tax.HasValue)
-        {
-            order.Tax = request.Tax.Value;
-        }
+        // Recalculate totals using PricingService
+        var totals = await _pricingService.CalculateOrderTotalsAsync(order, null);
+        
+        // Use provided values or calculated values
+        order.SubTotal = request.SubTotal ?? totals.SubTotal;
+        order.Discount = request.Discount ?? totals.Discount;
+        order.Tax = request.Tax ?? totals.Tax;
+        // Total is calculated property: SubTotal - Discount + Tax
 
         order.UpdatedAt = DateTime.UtcNow;
 
@@ -221,15 +216,6 @@ public class OrderService
         return true;
     }
 
-    private void CalculateOrderTotals(Order order, CreateOrderRequest? request = null)
-    {
-        // Calculate subtotal from items
-        order.SubTotal = order.Items.Sum(i => i.Price * i.Quantity);
-
-        // Use provided values or defaults
-        order.Discount = request?.Discount ?? 0;
-        order.Tax = request?.Tax ?? 0;
-    }
 
     private OrderResponse MapToOrderResponse(Order order)
     {
