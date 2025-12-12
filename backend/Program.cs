@@ -79,6 +79,8 @@ builder.Services.AddAuthorization(options =>
 
 // Register services
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<OrderItemService>();
 
 builder.Services.AddCors(options =>
 {
