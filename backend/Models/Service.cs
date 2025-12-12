@@ -2,6 +2,11 @@ namespace backend.Models;
 
 public class Service
 {
+    public Service()
+    {
+        CreatedAt = DateTime.UtcNow;
+    }
+
     public int Id { get; set; }
     public int BusinessId { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -9,7 +14,7 @@ public class Service
     public decimal Price { get; set; }
     public int DurationMinutes { get; set; }
     public bool Available { get; set; } = true;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
     // Navigation properties

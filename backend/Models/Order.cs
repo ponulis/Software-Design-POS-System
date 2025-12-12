@@ -10,6 +10,12 @@ public enum OrderStatus
 
 public class Order
 {
+    public Order()
+    {
+        CreatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     public int Id { get; set; }
     public int BusinessId { get; set; }
     public int SpotId { get; set; }
@@ -19,8 +25,8 @@ public class Order
     public decimal Tax { get; set; }
     public decimal Total => SubTotal - Discount + Tax;
     public OrderStatus Status { get; set; } = OrderStatus.Draft;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
 
     // Navigation properties
     public Business Business { get; set; } = null!;

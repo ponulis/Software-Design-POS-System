@@ -9,12 +9,17 @@ public enum PaymentMethod
 
 public class Payment
 {
+    public Payment()
+    {
+        PaidAt = DateTime.UtcNow;
+    }
+
     public int Id { get; set; }
     public int OrderId { get; set; }
     public int CreatedBy { get; set; }
     public decimal Amount { get; set; }
     public PaymentMethod Method { get; set; }
-    public DateTime PaidAt { get; set; } = DateTime.UtcNow;
+    public DateTime PaidAt { get; set; }
     public string? TransactionId { get; set; }
     public string? AuthorizationCode { get; set; }
 

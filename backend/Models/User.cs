@@ -2,13 +2,18 @@ namespace backend.Models;
 
 public class User
 {
+    public User()
+    {
+        CreatedAt = DateTime.UtcNow;
+    }
+
     public int Id { get; set; }
     public int BusinessId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string Role { get; set; } = "Employee"; // Employee, Manager, Admin
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public bool IsActive { get; set; } = true;
 

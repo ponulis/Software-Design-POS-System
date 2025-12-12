@@ -10,6 +10,11 @@ public enum AppointmentStatus
 
 public class Appointment
 {
+    public Appointment()
+    {
+        CreatedAt = DateTime.UtcNow;
+    }
+
     public int Id { get; set; }
     public int BusinessId { get; set; }
     public int? ServiceId { get; set; }
@@ -20,7 +25,7 @@ public class Appointment
     public string? Notes { get; set; }
     public AppointmentStatus Status { get; set; } = AppointmentStatus.Scheduled;
     public int? OrderId { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
     // Navigation properties
