@@ -8,10 +8,12 @@ namespace backend.Services;
 public class OrderItemService
 {
     private readonly ApplicationDbContext _context;
+    private readonly PricingService _pricingService;
 
-    public OrderItemService(ApplicationDbContext context)
+    public OrderItemService(ApplicationDbContext context, PricingService pricingService)
     {
         _context = context;
+        _pricingService = pricingService;
     }
 
     public async Task<OrderItemResponse?> CreateOrderItemAsync(CreateOrderItemRequest request, int businessId)
@@ -194,7 +196,11 @@ public class OrderItemService
 
         if (order != null)
         {
-            order.SubTotal = order.Items.Sum(i => i.Price * i.Quantity);
+            // Recalculate all totals using PricingService
+            var totals = await _pricingService.CalculateOrderTotalsAsync(order, null);
+            order.SubTotal = totals.SubTotal;
+            order.Tax = totals.Tax;
+            order.Discount = totals.Discount;
             order.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
