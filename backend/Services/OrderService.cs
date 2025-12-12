@@ -1,0 +1,258 @@
+using backend.Data;
+using backend.DTOs;
+using backend.Extensions;
+using backend.Models;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+
+namespace backend.Services;
+
+public class OrderService
+{
+    private readonly ApplicationDbContext _context;
+
+    public OrderService(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<OrderResponse?> CreateOrderAsync(CreateOrderRequest request, int businessId, int userId)
+    {
+        // Validate products availability
+        var productIds = request.Items.Select(i => i.MenuId).ToList();
+        var products = await _context.Products
+            .Where(p => productIds.Contains(p.Id) && p.BusinessId == businessId)
+            .ToListAsync();
+
+        if (products.Count != productIds.Count)
+        {
+            throw new InvalidOperationException("One or more products not found or don't belong to your business");
+        }
+
+        var unavailableProducts = products.Where(p => !p.Available).ToList();
+        if (unavailableProducts.Any())
+        {
+            throw new InvalidOperationException($"Products not available: {string.Join(", ", unavailableProducts.Select(p => p.Name))}");
+        }
+
+        // Create order
+        var order = new Order
+        {
+            BusinessId = businessId,
+            SpotId = request.SpotId,
+            CreatedBy = userId,
+            Status = string.IsNullOrEmpty(request.Status) 
+                ? OrderStatus.Draft 
+                : Enum.Parse<OrderStatus>(request.Status, true),
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        // Create order items
+        foreach (var itemRequest in request.Items)
+        {
+            var product = products.First(p => p.Id == itemRequest.MenuId);
+            var orderItem = new OrderItem
+            {
+                OrderId = order.Id, // Will be set after order is saved
+                MenuId = itemRequest.MenuId,
+                Quantity = itemRequest.Quantity,
+                Price = itemRequest.Price ?? product.Price,
+                Notes = itemRequest.Notes
+            };
+            order.Items.Add(orderItem);
+        }
+
+        // Calculate totals
+        CalculateOrderTotals(order, request);
+
+        _context.Orders.Add(order);
+        await _context.SaveChangesAsync();
+
+        return MapToOrderResponse(order);
+    }
+
+    public async Task<List<OrderResponse>> GetAllOrdersAsync(int businessId)
+    {
+        var orders = await _context.Orders
+            .Where(o => o.BusinessId == businessId)
+            .Include(o => o.Items)
+            .ThenInclude(i => i.Product)
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync();
+
+        return orders.Select(MapToOrderResponse).ToList();
+    }
+
+    public async Task<OrderResponse?> GetOrderByIdAsync(int orderId, int businessId)
+    {
+        var order = await _context.Orders
+            .Where(o => o.Id == orderId && o.BusinessId == businessId)
+            .Include(o => o.Items)
+            .ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync();
+
+        return order != null ? MapToOrderResponse(order) : null;
+    }
+
+    public async Task<OrderResponse?> UpdateOrderAsync(int orderId, UpdateOrderRequest request, int businessId)
+    {
+        var order = await _context.Orders
+            .Where(o => o.Id == orderId && o.BusinessId == businessId)
+            .Include(o => o.Items)
+            .ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            return null;
+        }
+
+        // Cannot update paid or cancelled orders
+        if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Cancelled)
+        {
+            throw new InvalidOperationException("Cannot update paid or cancelled orders");
+        }
+
+        // Update spot if provided
+        if (request.SpotId.HasValue)
+        {
+            order.SpotId = request.SpotId.Value;
+        }
+
+        // Update status if provided
+        if (!string.IsNullOrEmpty(request.Status))
+        {
+            order.Status = Enum.Parse<OrderStatus>(request.Status, true);
+        }
+
+        // Update items if provided
+        if (request.Items != null && request.Items.Any())
+        {
+            // Remove existing items
+            _context.OrderItems.RemoveRange(order.Items);
+
+            // Validate new products
+            var productIds = request.Items.Select(i => i.MenuId).ToList();
+            var products = await _context.Products
+                .Where(p => productIds.Contains(p.Id) && p.BusinessId == businessId)
+                .ToListAsync();
+
+            if (products.Count != productIds.Count)
+            {
+                throw new InvalidOperationException("One or more products not found or don't belong to your business");
+            }
+
+            var unavailableProducts = products.Where(p => !p.Available).ToList();
+            if (unavailableProducts.Any())
+            {
+                throw new InvalidOperationException($"Products not available: {string.Join(", ", unavailableProducts.Select(p => p.Name))}");
+            }
+
+            // Add new items
+            foreach (var itemRequest in request.Items)
+            {
+                var product = products.First(p => p.Id == itemRequest.MenuId);
+                var orderItem = new OrderItem
+                {
+                    OrderId = order.Id,
+                    MenuId = itemRequest.MenuId,
+                    Quantity = itemRequest.Quantity,
+                    Price = itemRequest.Price ?? product.Price,
+                    Notes = itemRequest.Notes
+                };
+                order.Items.Add(orderItem);
+            }
+        }
+
+        // Recalculate totals
+        if (request.SubTotal.HasValue)
+        {
+            order.SubTotal = request.SubTotal.Value;
+        }
+        else
+        {
+            order.SubTotal = order.Items.Sum(i => i.Price * i.Quantity);
+        }
+
+        if (request.Discount.HasValue)
+        {
+            order.Discount = request.Discount.Value;
+        }
+
+        if (request.Tax.HasValue)
+        {
+            order.Tax = request.Tax.Value;
+        }
+
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return MapToOrderResponse(order);
+    }
+
+    public async Task<bool> DeleteOrderAsync(int orderId, int businessId)
+    {
+        var order = await _context.Orders
+            .Where(o => o.Id == orderId && o.BusinessId == businessId)
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            return false;
+        }
+
+        // Cannot delete paid orders - should be cancelled instead
+        if (order.Status == OrderStatus.Paid)
+        {
+            throw new InvalidOperationException("Cannot delete paid orders. Cancel the order instead.");
+        }
+
+        // Delete order items first
+        var orderItems = await _context.OrderItems
+            .Where(oi => oi.OrderId == orderId)
+            .ToListAsync();
+        _context.OrderItems.RemoveRange(orderItems);
+
+        _context.Orders.Remove(order);
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    private void CalculateOrderTotals(Order order, CreateOrderRequest? request = null)
+    {
+        // Calculate subtotal from items
+        order.SubTotal = order.Items.Sum(i => i.Price * i.Quantity);
+
+        // Use provided values or defaults
+        order.Discount = request?.Discount ?? 0;
+        order.Tax = request?.Tax ?? 0;
+    }
+
+    private OrderResponse MapToOrderResponse(Order order)
+    {
+        return new OrderResponse
+        {
+            Id = order.Id,
+            SpotId = order.SpotId,
+            CreatedBy = order.CreatedBy,
+            Items = order.Items.Select(i => new OrderItemResponse
+            {
+                Id = i.Id,
+                MenuId = i.MenuId,
+                Quantity = i.Quantity,
+                Price = i.Price,
+                Notes = i.Notes
+            }).ToList(),
+            SubTotal = order.SubTotal,
+            Discount = order.Discount,
+            Tax = order.Tax,
+            Total = order.Total,
+            Status = order.Status.ToString(),
+            UpdatedAt = order.UpdatedAt,
+            CreatedAt = order.CreatedAt
+        };
+    }
+}
