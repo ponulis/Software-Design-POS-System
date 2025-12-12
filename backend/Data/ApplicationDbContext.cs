@@ -36,9 +36,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PhoneNumber).HasMaxLength(50);
 
             // Relationship: Business -> Owner (User)
+            // Owner is a User, but we use a simple foreign key relationship
             entity.HasOne(e => e.Owner)
-                .WithOne()
-                .HasForeignKey<Business>(e => e.OwnerId)
+                .WithMany()
+                .HasForeignKey(e => e.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -68,11 +69,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Price).HasColumnType("decimal(18,2)");
 
-            // Store Tags as JSON or comma-separated (using JSON for EF Core)
+            // Store Tags as comma-separated string
             entity.Property(e => e.Tags)
                 .HasConversion(
                     v => string.Join(',', v),
-                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
+                    v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                    new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
+                        (c1, c2) => c1 != null && c2 != null && c1.SequenceEqual(c2),
+                        c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                        c => c.ToList()
+                    )
                 );
 
             // Relationship: Product -> Business
