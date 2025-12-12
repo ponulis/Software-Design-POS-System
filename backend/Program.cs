@@ -81,6 +81,8 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<OrderItemService>();
+builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<ServiceService>();
 
 builder.Services.AddCors(options =>
 {
