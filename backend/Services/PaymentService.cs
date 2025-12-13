@@ -10,12 +10,14 @@ public class PaymentService
     private readonly ApplicationDbContext _context;
     private readonly PricingService _pricingService;
     private readonly OrderService _orderService;
+    private readonly GiftCardService _giftCardService;
 
-    public PaymentService(ApplicationDbContext context, PricingService pricingService, OrderService orderService)
+    public PaymentService(ApplicationDbContext context, PricingService pricingService, OrderService orderService, GiftCardService giftCardService)
     {
         _context = context;
         _pricingService = pricingService;
         _orderService = orderService;
+        _giftCardService = giftCardService;
     }
 
     public async Task<PaymentResponse?> CreatePaymentAsync(CreatePaymentRequest request, int businessId, int userId)
@@ -110,6 +112,27 @@ public class PaymentService
             }
 
             change = cashReceived - request.Amount;
+        }
+        else if (paymentMethod == PaymentMethod.GiftCard)
+        {
+            // For gift card payments, GiftCardCode is required
+            if (string.IsNullOrWhiteSpace(request.GiftCardCode))
+            {
+                throw new InvalidOperationException("GiftCardCode is required for gift card payments");
+            }
+
+            // Validate and deduct from gift card
+            try
+            {
+                await _giftCardService.DeductBalanceAsync(request.GiftCardCode, request.Amount, businessId);
+                
+                // Store gift card code in TransactionId for gift card payments
+                request.TransactionId = request.GiftCardCode;
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new InvalidOperationException($"Gift card payment failed: {ex.Message}");
+            }
         }
 
         // Create payment record

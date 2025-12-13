@@ -85,6 +85,7 @@ builder.Services.AddScoped<OrderItemService>();
 builder.Services.AddScoped<ProductService>();
 builder.Services.AddScoped<ServiceService>();
 builder.Services.AddScoped<PaymentService>();
+builder.Services.AddScoped<GiftCardService>();
 
 builder.Services.AddCors(options =>
 {
