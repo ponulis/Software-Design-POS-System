@@ -8,10 +8,14 @@ namespace backend.Services;
 public class PaymentService
 {
     private readonly ApplicationDbContext _context;
+    private readonly PricingService _pricingService;
+    private readonly OrderService _orderService;
 
-    public PaymentService(ApplicationDbContext context)
+    public PaymentService(ApplicationDbContext context, PricingService pricingService, OrderService orderService)
     {
         _context = context;
+        _pricingService = pricingService;
+        _orderService = orderService;
     }
 
     public async Task<PaymentResponse?> CreatePaymentAsync(CreatePaymentRequest request, int businessId, int userId)
@@ -19,6 +23,7 @@ public class PaymentService
         // Validate order exists and belongs to business
         var order = await _context.Orders
             .Where(o => o.Id == request.OrderId && o.BusinessId == businessId)
+            .Include(o => o.Items)
             .FirstOrDefaultAsync();
 
         if (order == null)
@@ -30,6 +35,34 @@ public class PaymentService
         if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Placed)
         {
             throw new InvalidOperationException($"Cannot create payment for order with status {order.Status}");
+        }
+
+        // Recalculate order totals using PricingService before creating payment
+        // This ensures we have the latest tax and discount calculations
+        var orderTotals = await _pricingService.CalculateOrderTotalsAsync(order, null);
+        
+        // Update order totals if they differ from calculated values
+        if (order.SubTotal != orderTotals.SubTotal || 
+            order.Tax != orderTotals.Tax || 
+            order.Discount != orderTotals.Discount)
+        {
+            order.SubTotal = orderTotals.SubTotal;
+            order.Tax = orderTotals.Tax;
+            order.Discount = orderTotals.Discount;
+            order.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        // Calculate remaining balance after existing payments
+        var existingPayments = await _context.Payments
+            .Where(p => p.OrderId == order.Id)
+            .SumAsync(p => p.Amount);
+        var remainingBalance = order.Total - existingPayments;
+
+        // Validate that payment amount doesn't exceed remaining balance
+        if (request.Amount > remainingBalance)
+        {
+            throw new InvalidOperationException($"Payment amount ({request.Amount:C}) exceeds remaining balance ({remainingBalance:C}). Order total: {order.Total:C}, Existing payments: {existingPayments:C}");
         }
 
         // Validate payment method
@@ -63,20 +96,13 @@ public class PaymentService
                 throw new InvalidOperationException("Cash received must be greater than zero");
             }
 
-            // Calculate remaining order balance (considering existing payments)
-            var existingPayments = await _context.Payments
-                .Where(p => p.OrderId == order.Id)
-                .SumAsync(p => p.Amount);
-            var remainingBalance = order.Total - existingPayments;
-
             // Validate cash received is sufficient
             if (cashReceived < remainingBalance)
             {
                 throw new InvalidOperationException($"Insufficient cash. Order total: {order.Total:C}, Existing payments: {existingPayments:C}, Remaining: {remainingBalance:C}, Cash received: {cashReceived:C}");
             }
 
-            // Calculate change (cashReceived - remainingBalance)
-            // Note: For cash payments, Amount should equal the remaining balance or less
+            // For cash payments, Amount should equal the remaining balance
             if (request.Amount > remainingBalance)
             {
                 // If amount exceeds remaining balance, adjust it
@@ -84,20 +110,6 @@ public class PaymentService
             }
 
             change = cashReceived - request.Amount;
-        }
-        else
-        {
-            // For non-cash payments, amount should match order total (or remaining balance)
-            var existingPayments = await _context.Payments
-                .Where(p => p.OrderId == order.Id)
-                .SumAsync(p => p.Amount);
-            var remainingBalance = order.Total - existingPayments;
-
-            // Validate amount doesn't exceed remaining balance
-            if (request.Amount > remainingBalance)
-            {
-                throw new InvalidOperationException($"Payment amount ({request.Amount:C}) exceeds remaining balance ({remainingBalance:C})");
-            }
         }
 
         // Create payment record
@@ -123,6 +135,39 @@ public class PaymentService
         await UpdateOrderStatusIfFullyPaidAsync(order);
 
         return MapToPaymentResponse(payment, cashReceived, change);
+    }
+
+    /// <summary>
+    /// Create payment and return confirmation with order details
+    /// </summary>
+    public async Task<PaymentConfirmationResponse> CreatePaymentWithConfirmationAsync(CreatePaymentRequest request, int businessId, int userId)
+    {
+        var paymentResponse = await CreatePaymentAsync(request, businessId, userId);
+        
+        if (paymentResponse == null)
+        {
+            throw new InvalidOperationException("Failed to create payment");
+        }
+
+        // Get updated order details
+        var orderResponse = await _orderService.GetOrderByIdAsync(request.OrderId, businessId);
+        
+        if (orderResponse == null)
+        {
+            throw new InvalidOperationException("Order not found after payment creation");
+        }
+
+        var isFullyPaid = orderResponse.Status == "Paid";
+        var message = isFullyPaid 
+            ? "Payment successful. Order has been fully paid."
+            : $"Payment of {paymentResponse.Amount:C} recorded. Remaining balance: {orderResponse.Total - orderResponse.SubTotal + orderResponse.Discount - orderResponse.Tax:C}";
+
+        return new PaymentConfirmationResponse
+        {
+            Payment = paymentResponse,
+            Order = orderResponse,
+            Message = message
+        };
     }
 
     public async Task<List<PaymentResponse>> GetAllPaymentsAsync(int businessId, int? orderId = null)

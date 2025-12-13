@@ -24,7 +24,7 @@ public class PaymentsController : ControllerBase
     /// Create a new payment
     /// </summary>
     [HttpPost]
-    [ProducesResponseType(typeof(PaymentResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(PaymentConfirmationResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreatePayment([FromBody] CreatePaymentRequest request)
     {
@@ -41,15 +41,9 @@ public class PaymentsController : ControllerBase
             var businessId = businessIdNullable.Value;
             var userId = userIdNullable.Value;
 
-            // Override CreatedBy with authenticated user's ID
-            var payment = await _paymentService.CreatePaymentAsync(request, businessId, userId);
-            
-            if (payment == null)
-            {
-                return BadRequest(new { message = "Failed to create payment" });
-            }
-
-            return CreatedAtAction(nameof(GetPaymentById), new { paymentId = payment.Id }, payment);
+            // Create payment and return confirmation with order details
+            var confirmation = await _paymentService.CreatePaymentWithConfirmationAsync(request, businessId, userId);
+            return CreatedAtAction(nameof(GetPaymentById), new { paymentId = confirmation.Payment.Id }, confirmation);
         }
         catch (InvalidOperationException ex)
         {
