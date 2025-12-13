@@ -212,6 +212,11 @@ public class PaymentService
         _context.Payments.Add(payment);
         await _context.SaveChangesAsync();
 
+        // Audit logging: Log payment creation
+        _logger.LogInformation(
+            "Payment created: PaymentId={PaymentId}, OrderId={OrderId}, Amount={Amount}, Method={Method}, CreatedBy={CreatedBy}, PaidAt={PaidAt}, TransactionId={TransactionId}",
+            payment.Id, payment.OrderId, payment.Amount, payment.Method, payment.CreatedBy, payment.PaidAt, payment.TransactionId);
+
         // Check if order should be marked as Paid
         await UpdateOrderStatusIfFullyPaidAsync(order);
 
