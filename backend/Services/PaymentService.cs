@@ -89,6 +89,9 @@ public class PaymentService
             throw new InvalidOperationException("Payment amount must be greater than zero");
         }
 
+        // Prevent duplicate payments
+        await ValidatePaymentUniquenessAsync(request, paymentMethod, order.Id);
+
         // Cash payment specific validation
         decimal? change = null;
         decimal? cashReceived = null;
@@ -216,6 +219,46 @@ public class PaymentService
     }
 
     /// <summary>
+    /// Validate payment uniqueness to prevent duplicate payments
+    /// </summary>
+    private async Task ValidatePaymentUniquenessAsync(CreatePaymentRequest request, PaymentMethod paymentMethod, int orderId)
+    {
+        // For card payments, check if PaymentIntentId (TransactionId) was already used
+        if (paymentMethod == PaymentMethod.Card && !string.IsNullOrWhiteSpace(request.TransactionId))
+        {
+            var existingCardPayment = await _context.Payments
+                .Where(p => p.OrderId == orderId && 
+                           p.Method == PaymentMethod.Card && 
+                           p.TransactionId == request.TransactionId)
+                .FirstOrDefaultAsync();
+
+            if (existingCardPayment != null)
+            {
+                throw new InvalidOperationException($"Payment with PaymentIntentId '{request.TransactionId}' already exists for this order. Duplicate payment prevented.");
+            }
+        }
+
+        // For gift card payments, check if the same gift card code was used recently for this order
+        // (Allow same gift card for different orders, but prevent duplicate use for same order)
+        if (paymentMethod == PaymentMethod.GiftCard && !string.IsNullOrWhiteSpace(request.GiftCardCode))
+        {
+            var existingGiftCardPayment = await _context.Payments
+                .Where(p => p.OrderId == orderId && 
+                           p.Method == PaymentMethod.GiftCard && 
+                           p.TransactionId == request.GiftCardCode)
+                .FirstOrDefaultAsync();
+
+            if (existingGiftCardPayment != null)
+            {
+                throw new InvalidOperationException($"Gift card '{request.GiftCardCode}' has already been used for this order. Duplicate payment prevented.");
+            }
+        }
+
+        // For cash payments, we don't check duplicates since multiple cash payments are allowed
+        // (e.g., customer pays in installments)
+    }
+
+    /// <summary>
     /// Get order for payment validation (used by Stripe controller)
     /// </summary>
     public async Task<Order?> GetOrderForPaymentAsync(int orderId, int businessId)
@@ -329,8 +372,15 @@ public class PaymentService
         // If any payments failed, throw error with details
         if (failedPayments.Any())
         {
+            _logger.LogError("Split payment processing failed: OrderId={OrderId}, FailedCount={FailedCount}, Errors={Errors}",
+                request.OrderId, failedPayments.Count, string.Join("; ", failedPayments));
             throw new InvalidOperationException($"Some split payments failed:\n{string.Join("\n", failedPayments)}");
         }
+
+        // Audit logging: Log successful split payment creation
+        _logger.LogInformation(
+            "Split payments created successfully: OrderId={OrderId}, PaymentCount={PaymentCount}, TotalAmount={TotalAmount}",
+            request.OrderId, createdPayments.Count, createdPayments.Sum(p => p.Amount));
 
         // Get updated order details
         var orderResponse = await _orderService.GetOrderByIdAsync(request.OrderId, businessId);
@@ -406,6 +456,79 @@ public class PaymentService
         return payments.Select(p => MapToPaymentResponse(p)).ToList();
     }
 
+    /// <summary>
+    /// Get payment history with audit information (CreatedBy user details)
+    /// </summary>
+    public async Task<List<PaymentHistoryResponse>> GetPaymentHistoryAsync(int businessId, int? orderId = null, DateTime? startDate = null, DateTime? endDate = null)
+    {
+        var query = _context.Payments
+            .Include(p => p.Order)
+            .Include(p => p.Creator)
+            .Where(p => p.Order.BusinessId == businessId);
+
+        if (orderId.HasValue)
+        {
+            query = query.Where(p => p.OrderId == orderId.Value);
+        }
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(p => p.PaidAt >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(p => p.PaidAt <= endDate.Value);
+        }
+
+        var payments = await query
+            .OrderByDescending(p => p.PaidAt)
+            .ToListAsync();
+
+        return payments.Select(p => MapToPaymentHistoryResponse(p)).ToList();
+    }
+
+    private PaymentHistoryResponse MapToPaymentHistoryResponse(Payment payment)
+    {
+        decimal? cashReceived = null;
+        decimal? change = null;
+
+        // For cash payments, extract cashReceived and change
+        if (payment.Method == PaymentMethod.Cash)
+        {
+            if (!string.IsNullOrEmpty(payment.TransactionId))
+            {
+                if (decimal.TryParse(payment.TransactionId, out var parsedCashReceived))
+                {
+                    cashReceived = parsedCashReceived;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(payment.AuthorizationCode))
+            {
+                if (decimal.TryParse(payment.AuthorizationCode, out var parsedChange))
+                {
+                    change = parsedChange;
+                }
+            }
+        }
+
+        return new PaymentHistoryResponse
+        {
+            PaymentId = payment.Id,
+            OrderId = payment.OrderId,
+            Amount = payment.Amount,
+            Method = payment.Method.ToString(),
+            PaidAt = payment.PaidAt,
+            CreatedBy = payment.CreatedBy,
+            CreatedByName = payment.Creator?.Name,
+            TransactionId = payment.Method == PaymentMethod.Cash ? null : payment.TransactionId,
+            AuthorizationCode = payment.Method == PaymentMethod.Cash ? null : payment.AuthorizationCode,
+            CashReceived = cashReceived,
+            Change = change
+        };
+    }
+
     public async Task<PaymentResponse?> GetPaymentByIdAsync(int paymentId, int businessId)
     {
         var payment = await _context.Payments
@@ -434,6 +557,11 @@ public class PaymentService
             throw new InvalidOperationException("Cannot delete payment for a paid order. Process a refund instead.");
         }
 
+        // Audit logging: Log payment deletion before removal
+        _logger.LogWarning(
+            "Payment deleted: PaymentId={PaymentId}, OrderId={OrderId}, Amount={Amount}, Method={Method}, CreatedBy={CreatedBy}, PaidAt={PaidAt}",
+            payment.Id, payment.OrderId, payment.Amount, payment.Method, payment.CreatedBy, payment.PaidAt);
+
         _context.Payments.Remove(payment);
         await _context.SaveChangesAsync();
 
@@ -454,9 +582,26 @@ public class PaymentService
 
         if (totalPayments >= order.Total && order.Status != OrderStatus.Paid)
         {
+            var previousStatus = order.Status;
             order.Status = OrderStatus.Paid;
             order.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            // Audit logging: Log order status change to Paid
+            _logger.LogInformation(
+                "Order fully paid: OrderId={OrderId}, Total={Total}, TotalPayments={TotalPayments}, PreviousStatus={PreviousStatus}, NewStatus=Paid",
+                order.Id, order.Total, totalPayments, previousStatus);
+        }
+        else if (totalPayments < order.Total && order.Status == OrderStatus.Paid)
+        {
+            // If payments were deleted and order is no longer fully paid, revert status
+            order.Status = OrderStatus.Placed;
+            order.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            _logger.LogWarning(
+                "Order payment status reverted: OrderId={OrderId}, Total={Total}, TotalPayments={TotalPayments}, Status changed from Paid to Placed",
+                order.Id, order.Total, totalPayments);
         }
     }
 

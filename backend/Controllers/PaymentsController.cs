@@ -116,6 +116,35 @@ public class PaymentsController : ControllerBase
     }
 
     /// <summary>
+    /// Get payment history with audit information
+    /// </summary>
+    [HttpGet("history")]
+    [ProducesResponseType(typeof(List<PaymentHistoryResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPaymentHistory(
+        [FromQuery] int? orderId = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null)
+    {
+        try
+        {
+            var businessIdNullable = User.GetBusinessId();
+            if (!businessIdNullable.HasValue)
+            {
+                throw new UnauthorizedAccessException("Business ID not found in token");
+            }
+
+            var businessId = businessIdNullable.Value;
+            var paymentHistory = await _paymentService.GetPaymentHistoryAsync(businessId, orderId, startDate, endDate);
+            return Ok(paymentHistory);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving payment history");
+            return StatusCode(500, new { message = "An error occurred while retrieving payment history" });
+        }
+    }
+
+    /// <summary>
     /// Create split payments (multiple payments for one order)
     /// </summary>
     [HttpPost("split")]
