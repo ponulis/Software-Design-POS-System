@@ -227,6 +227,135 @@ public class PaymentService
     }
 
     /// <summary>
+    /// Create split payments (multiple payments for one order)
+    /// </summary>
+    public async Task<SplitPaymentResponse> CreateSplitPaymentsAsync(CreateSplitPaymentRequest request, int businessId, int userId)
+    {
+        // Validate order exists and belongs to business
+        var order = await _context.Orders
+            .Where(o => o.Id == request.OrderId && o.BusinessId == businessId)
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            throw new InvalidOperationException("Order not found or doesn't belong to your business");
+        }
+
+        // Validate order status (can only pay Draft or Placed orders)
+        if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Placed)
+        {
+            throw new InvalidOperationException($"Cannot create payments for order with status {order.Status}");
+        }
+
+        // Recalculate order totals using PricingService
+        var orderTotals = await _pricingService.CalculateOrderTotalsAsync(order, null);
+        
+        // Update order totals if they differ from calculated values
+        if (order.SubTotal != orderTotals.SubTotal || 
+            order.Tax != orderTotals.Tax || 
+            order.Discount != orderTotals.Discount)
+        {
+            order.SubTotal = orderTotals.SubTotal;
+            order.Tax = orderTotals.Tax;
+            order.Discount = orderTotals.Discount;
+            order.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        // Calculate existing payments
+        var existingPayments = await _context.Payments
+            .Where(p => p.OrderId == order.Id)
+            .SumAsync(p => p.Amount);
+        var remainingBalance = order.Total - existingPayments;
+
+        // Validate split payments
+        if (request.Payments == null || !request.Payments.Any())
+        {
+            throw new InvalidOperationException("At least one payment is required for split payment");
+        }
+
+        // Validate all payment amounts are positive
+        foreach (var splitPayment in request.Payments)
+        {
+            if (splitPayment.Amount <= 0)
+            {
+                throw new InvalidOperationException("All payment amounts must be greater than zero");
+            }
+        }
+
+        // Calculate total of split payments
+        var splitTotal = request.Payments.Sum(p => p.Amount);
+
+        // Validate sum of split payments equals remaining balance (with small tolerance for rounding)
+        if (Math.Abs(splitTotal - remainingBalance) > 0.01m)
+        {
+            throw new InvalidOperationException($"Sum of split payments ({splitTotal:C}) must equal remaining balance ({remainingBalance:C}). Order total: {order.Total:C}, Existing payments: {existingPayments:C}");
+        }
+
+        // Process each payment individually
+        var createdPayments = new List<PaymentResponse>();
+        var failedPayments = new List<string>();
+
+        foreach (var splitPayment in request.Payments)
+        {
+            try
+            {
+                // Create payment request for this split
+                var paymentRequest = new CreatePaymentRequest
+                {
+                    OrderId = request.OrderId,
+                    Amount = splitPayment.Amount,
+                    Method = splitPayment.Method,
+                    CashReceived = splitPayment.CashReceived,
+                    GiftCardCode = splitPayment.GiftCardCode,
+                    TransactionId = splitPayment.PaymentIntentId
+                };
+
+                // Create the payment
+                var paymentResponse = await CreatePaymentAsync(paymentRequest, businessId, userId);
+                if (paymentResponse != null)
+                {
+                    createdPayments.Add(paymentResponse);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating split payment");
+                failedPayments.Add($"Payment {splitPayment.Method} for {splitPayment.Amount:C}: {ex.Message}");
+            }
+        }
+
+        // If any payments failed, throw error with details
+        if (failedPayments.Any())
+        {
+            throw new InvalidOperationException($"Some split payments failed:\n{string.Join("\n", failedPayments)}");
+        }
+
+        // Get updated order details
+        var orderResponse = await _orderService.GetOrderByIdAsync(request.OrderId, businessId);
+        if (orderResponse == null)
+        {
+            throw new InvalidOperationException("Order not found after split payment creation");
+        }
+
+        // Calculate total paid and remaining balance
+        var totalPaid = existingPayments + createdPayments.Sum(p => p.Amount);
+        var finalRemainingBalance = order.Total - totalPaid;
+        var isFullyPaid = orderResponse.Status == "Paid";
+
+        return new SplitPaymentResponse
+        {
+            OrderId = request.OrderId,
+            Payments = createdPayments,
+            TotalPaid = totalPaid,
+            RemainingBalance = finalRemainingBalance,
+            IsFullyPaid = isFullyPaid,
+            Order = orderResponse
+        };
+    }
+
+    /// <summary>
     /// Create payment and return confirmation with order details
     /// </summary>
     public async Task<PaymentConfirmationResponse> CreatePaymentWithConfirmationAsync(CreatePaymentRequest request, int businessId, int userId)
