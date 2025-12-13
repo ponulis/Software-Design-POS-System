@@ -116,6 +116,41 @@ public class PaymentsController : ControllerBase
     }
 
     /// <summary>
+    /// Create split payments (multiple payments for one order)
+    /// </summary>
+    [HttpPost("split")]
+    [ProducesResponseType(typeof(SplitPaymentResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateSplitPayments([FromBody] CreateSplitPaymentRequest request)
+    {
+        try
+        {
+            var businessIdNullable = User.GetBusinessId();
+            var userIdNullable = User.GetUserId();
+
+            if (!businessIdNullable.HasValue || !userIdNullable.HasValue)
+            {
+                throw new UnauthorizedAccessException("Business ID or User ID not found in token");
+            }
+
+            var businessId = businessIdNullable.Value;
+            var userId = userIdNullable.Value;
+
+            var splitPaymentResponse = await _paymentService.CreateSplitPaymentsAsync(request, businessId, userId);
+            return Ok(splitPaymentResponse);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating split payments");
+            return StatusCode(500, new { message = "An error occurred while creating split payments" });
+        }
+    }
+
+    /// <summary>
     /// Delete a payment
     /// </summary>
     [HttpDelete("{paymentId}")]
