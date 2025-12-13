@@ -11,13 +11,23 @@ public class PaymentService
     private readonly PricingService _pricingService;
     private readonly OrderService _orderService;
     private readonly GiftCardService _giftCardService;
+    private readonly StripeService? _stripeService;
+    private readonly ILogger<PaymentService> _logger;
 
-    public PaymentService(ApplicationDbContext context, PricingService pricingService, OrderService orderService, GiftCardService giftCardService)
+    public PaymentService(
+        ApplicationDbContext context, 
+        PricingService pricingService, 
+        OrderService orderService, 
+        GiftCardService giftCardService,
+        ILogger<PaymentService> logger,
+        StripeService? stripeService = null)
     {
         _context = context;
         _pricingService = pricingService;
         _orderService = orderService;
         _giftCardService = giftCardService;
+        _stripeService = stripeService;
+        _logger = logger;
     }
 
     public async Task<PaymentResponse?> CreatePaymentAsync(CreatePaymentRequest request, int businessId, int userId)
@@ -113,6 +123,51 @@ public class PaymentService
 
             change = cashReceived - request.Amount;
         }
+        else if (paymentMethod == PaymentMethod.Card)
+        {
+            // For card payments, validate Stripe is configured
+            if (_stripeService == null)
+            {
+                throw new InvalidOperationException("Stripe payment service is not configured");
+            }
+
+            // For card payments, TransactionId should contain PaymentIntentId
+            if (string.IsNullOrWhiteSpace(request.TransactionId))
+            {
+                throw new InvalidOperationException("PaymentIntentId (TransactionId) is required for card payments");
+            }
+
+            // Confirm the Stripe payment intent
+            try
+            {
+                var paymentIntent = await _stripeService.GetPaymentIntentAsync(request.TransactionId);
+
+                // Validate payment intent status
+                if (paymentIntent.Status != "succeeded" && paymentIntent.Status != "processing")
+                {
+                    throw new InvalidOperationException($"Payment intent status is {paymentIntent.Status}. Payment must be succeeded or processing.");
+                }
+
+                // Validate payment amount matches
+                var stripeAmount = paymentIntent.Amount / 100m; // Convert from cents
+                if (Math.Abs(stripeAmount - request.Amount) > 0.01m)
+                {
+                    throw new InvalidOperationException($"Payment amount mismatch. Stripe: {stripeAmount:C}, Request: {request.Amount:C}");
+                }
+
+                // Store Stripe metadata
+                request.AuthorizationCode = paymentIntent.LatestChargeId ?? paymentIntent.Id;
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing Stripe payment");
+                throw new InvalidOperationException($"Card payment failed: {ex.Message}");
+            }
+        }
         else if (paymentMethod == PaymentMethod.GiftCard)
         {
             // For gift card payments, GiftCardCode is required
@@ -158,6 +213,17 @@ public class PaymentService
         await UpdateOrderStatusIfFullyPaidAsync(order);
 
         return MapToPaymentResponse(payment, cashReceived, change);
+    }
+
+    /// <summary>
+    /// Get order for payment validation (used by Stripe controller)
+    /// </summary>
+    public async Task<Order?> GetOrderForPaymentAsync(int orderId, int businessId)
+    {
+        return await _context.Orders
+            .Where(o => o.Id == orderId && o.BusinessId == businessId)
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync();
     }
 
     /// <summary>
