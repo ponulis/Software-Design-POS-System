@@ -217,6 +217,25 @@ public class OrderService
     }
 
 
+    public async Task<ReceiptResponse?> GetReceiptAsync(int orderId, int businessId)
+    {
+        var order = await _context.Orders
+            .Where(o => o.Id == orderId && o.BusinessId == businessId)
+            .Include(o => o.Business)
+            .Include(o => o.Items)
+                .ThenInclude(i => i.Product)
+            .Include(o => o.Payments)
+            .Include(o => o.Creator)
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            return null;
+        }
+
+        return MapToReceiptResponse(order);
+    }
+
     private OrderResponse MapToOrderResponse(Order order)
     {
         return new OrderResponse
@@ -239,6 +258,57 @@ public class OrderService
             Status = order.Status.ToString(),
             UpdatedAt = order.UpdatedAt,
             CreatedAt = order.CreatedAt
+        };
+    }
+
+    private ReceiptResponse MapToReceiptResponse(Order order)
+    {
+        var totalPaid = order.Payments?.Sum(p => p.Amount) ?? 0;
+        var remainingBalance = order.Total - totalPaid;
+
+        return new ReceiptResponse
+        {
+            OrderId = order.Id,
+            OrderNumber = $"ORD-{order.Id:D6}",
+            OrderDate = order.CreatedAt,
+            Status = order.Status.ToString(),
+            
+            // Business Information
+            BusinessName = order.Business?.Name ?? string.Empty,
+            BusinessDescription = order.Business?.Description,
+            BusinessAddress = order.Business?.Address ?? string.Empty,
+            BusinessPhone = order.Business?.PhoneNumber ?? string.Empty,
+            BusinessEmail = order.Business?.ContactEmail ?? string.Empty,
+            
+            // Order Items
+            Items = order.Items.Select(i => new ReceiptItemResponse
+            {
+                Name = i.Product?.Name ?? "Unknown Product",
+                Quantity = i.Quantity,
+                UnitPrice = i.Price,
+                TotalPrice = i.Price * i.Quantity
+            }).ToList(),
+            
+            // Totals
+            SubTotal = order.SubTotal,
+            Discount = order.Discount,
+            Tax = order.Tax,
+            Total = order.Total,
+            
+            // Payment Information
+            Payments = order.Payments?.Select(p => new ReceiptPaymentResponse
+            {
+                PaymentId = p.Id,
+                Method = p.Method.ToString(),
+                Amount = p.Amount,
+                PaidAt = p.PaidAt,
+                TransactionId = p.TransactionId
+            }).ToList() ?? new List<ReceiptPaymentResponse>(),
+            TotalPaid = totalPaid,
+            RemainingBalance = remainingBalance,
+            
+            // Employee Information
+            CreatedByName = order.Creator?.Name
         };
     }
 }

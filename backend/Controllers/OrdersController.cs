@@ -21,6 +21,41 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>
+    /// Get receipt for an order
+    /// </summary>
+    /// <param name="orderId">Order ID</param>
+    /// <returns>Receipt details including business info, items, totals, and payments</returns>
+    [HttpGet("{orderId}/receipt")]
+    [ProducesResponseType(typeof(ReceiptResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetReceipt(int orderId)
+    {
+        try
+        {
+            var businessIdNullable = User.GetBusinessId();
+            if (!businessIdNullable.HasValue)
+            {
+                throw new UnauthorizedAccessException("Business ID not found in token");
+            }
+
+            var businessId = businessIdNullable.Value;
+            var receipt = await _orderService.GetReceiptAsync(orderId, businessId);
+
+            if (receipt == null)
+            {
+                return NotFound(new { message = "Order not found" });
+            }
+
+            return Ok(receipt);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving receipt");
+            return StatusCode(500, new { message = "An error occurred while retrieving the receipt" });
+        }
+    }
+
+    /// <summary>
     /// Create a new order
     /// </summary>
     /// <param name="request">Order details including items, spot ID, and optional discount</param>
