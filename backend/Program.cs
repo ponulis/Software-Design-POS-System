@@ -41,16 +41,31 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "POS System API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "POS System API", 
+        Version = "v1",
+        Description = "A unified platform for order management, appointment scheduling, and payment processing.",
+        Contact = new OpenApiContact
+        {
+            Name = "POS System Support",
+            Email = "support@possystem.com"
+        },
+        License = new OpenApiLicense
+        {
+            Name = "MIT License"
+        }
+    });
     
     // Add JWT authentication to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
+        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below. Example: 'Bearer {token}'",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Scheme = "Bearer",
+        BearerFormat = "JWT"
     });
     
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -67,6 +82,14 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+    
+    // Include XML comments for better documentation
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+    {
+        c.IncludeXmlComments(xmlPath);
+    }
 });
 
 // Add Entity Framework
@@ -152,13 +175,25 @@ using (var scope = app.Services.CreateScope())
 app.UseCors("AllowFrontend");
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Enable Swagger in all environments (can be restricted to Development in production)
+var enableSwagger = builder.Configuration.GetValue<bool>("SwaggerSettings:EnableSwagger", app.Environment.IsDevelopment());
+if (enableSwagger)
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "POS System API v1");
+        c.RoutePrefix = "swagger"; // Swagger UI at /swagger
+        c.DocumentTitle = "POS System API Documentation";
+        c.DefaultModelsExpandDepth(-1); // Hide schema section by default
+    });
 }
 
-app.UseHttpsRedirection();
+// HTTPS redirection - only enforce in production
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // Global exception handling middleware (should be early in pipeline)
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();

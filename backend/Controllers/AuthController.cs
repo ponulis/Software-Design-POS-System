@@ -22,6 +22,25 @@ public class AuthController : ControllerBase
     /// </summary>
     /// <param name="request">Login credentials (phone and password)</param>
     /// <returns>JWT token and user information</returns>
+    /// <remarks>
+    /// Sample request:
+    /// 
+    ///     POST /api/auth/login
+    ///     {
+    ///         "phone": "+1234567890",
+    ///         "password": "password123"
+    ///     }
+    /// 
+    /// Sample response:
+    /// 
+    ///     {
+    ///         "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    ///         "userId": 1,
+    ///         "businessId": 1,
+    ///         "name": "John Doe",
+    ///         "role": "Admin"
+    ///     }
+    /// </remarks>
     [HttpPost("login")]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
