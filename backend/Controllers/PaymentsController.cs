@@ -59,9 +59,18 @@ public class PaymentsController : ControllerBase
     /// <summary>
     /// Get all payments for the authenticated user's business
     /// </summary>
+    /// <param name="orderId">Filter by order ID</param>
+    /// <param name="method">Filter by payment method (Cash, Card, GiftCard)</param>
+    /// <param name="startDate">Filter payments made on or after this date</param>
+    /// <param name="endDate">Filter payments made on or before this date</param>
+    /// <returns>List of payments</returns>
     [HttpGet]
     [ProducesResponseType(typeof(List<PaymentResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAllPayments([FromQuery] int? orderId = null)
+    public async Task<IActionResult> GetAllPayments(
+        [FromQuery] int? orderId = null,
+        [FromQuery] string? method = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null)
     {
         try
         {
@@ -72,7 +81,7 @@ public class PaymentsController : ControllerBase
             }
 
             var businessId = businessIdNullable.Value;
-            var payments = await _paymentService.GetAllPaymentsAsync(businessId, orderId);
+            var payments = await _paymentService.GetAllPaymentsAsync(businessId, orderId, method, startDate, endDate);
             return Ok(payments);
         }
         catch (Exception ex)

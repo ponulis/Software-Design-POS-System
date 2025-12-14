@@ -443,7 +443,12 @@ public class PaymentService
         };
     }
 
-    public async Task<List<PaymentResponse>> GetAllPaymentsAsync(int businessId, int? orderId = null)
+    public async Task<List<PaymentResponse>> GetAllPaymentsAsync(
+        int businessId, 
+        int? orderId = null,
+        string? method = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null)
     {
         var query = _context.Payments
             .Include(p => p.Order)
@@ -452,6 +457,26 @@ public class PaymentService
         if (orderId.HasValue)
         {
             query = query.Where(p => p.OrderId == orderId.Value);
+        }
+
+        // Filter by payment method
+        if (!string.IsNullOrWhiteSpace(method))
+        {
+            if (Enum.TryParse<PaymentMethod>(method, true, out var paymentMethod))
+            {
+                query = query.Where(p => p.Method == paymentMethod);
+            }
+        }
+
+        // Filter by date range
+        if (startDate.HasValue)
+        {
+            query = query.Where(p => p.PaidAt >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(p => p.PaidAt <= endDate.Value);
         }
 
         var payments = await query
