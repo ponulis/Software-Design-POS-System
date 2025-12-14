@@ -734,8 +734,8 @@ public class PaymentService
 
         // Audit logging
         _logger.LogInformation(
-            "Refund processed: OrderId={OrderId}, RefundAmount={RefundAmount}, Reason={Reason}, RefundedPayments={RefundedPaymentsCount}",
-            orderId, refundAmount, request.Reason ?? "N/A", refundedPayments.Count);
+            "Refund processed: OrderId={OrderId}, RefundAmount={RefundAmount}, Reason={Reason}, RefundedPayments={RefundedPaymentsCount}, ProcessedBy={UserId}",
+            orderId, refundAmount, request.Reason ?? "N/A", refundedPayments.Count, userId);
 
         return new RefundResponse
         {
