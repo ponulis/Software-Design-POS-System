@@ -78,10 +78,43 @@ public class OrderService
         return MapToOrderResponse(order);
     }
 
-    public async Task<List<OrderResponse>> GetAllOrdersAsync(int businessId)
+    public async Task<List<OrderResponse>> GetAllOrdersAsync(
+        int businessId,
+        string? status = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        int? spotId = null)
     {
-        var orders = await _context.Orders
-            .Where(o => o.BusinessId == businessId)
+        var query = _context.Orders
+            .Where(o => o.BusinessId == businessId);
+
+        // Filter by status
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (Enum.TryParse<OrderStatus>(status, true, out var orderStatus))
+            {
+                query = query.Where(o => o.Status == orderStatus);
+            }
+        }
+
+        // Filter by date range
+        if (startDate.HasValue)
+        {
+            query = query.Where(o => o.CreatedAt >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(o => o.CreatedAt <= endDate.Value);
+        }
+
+        // Filter by spot ID
+        if (spotId.HasValue)
+        {
+            query = query.Where(o => o.SpotId == spotId.Value);
+        }
+
+        var orders = await query
             .Include(o => o.Items)
             .ThenInclude(i => i.Product)
             .OrderByDescending(o => o.CreatedAt)
