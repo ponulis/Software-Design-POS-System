@@ -263,6 +263,14 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.OrderId);
             entity.HasIndex(e => e.CreatedBy);
+            entity.HasIndex(e => e.PaidAt);
+            entity.HasIndex(e => e.Method);
+            
+            // Composite index for common query patterns:
+            // - Payments by OrderId and PaidAt (for order payment history with date sorting)
+            // - Payments by Method and PaidAt (for payment method analysis with date filtering)
+            entity.HasIndex(e => new { e.OrderId, e.PaidAt });
+            entity.HasIndex(e => new { e.Method, e.PaidAt });
         });
 
         // GiftCard configuration
