@@ -23,9 +23,18 @@ public class ServicesController : ControllerBase
     /// <summary>
     /// Get all services for the authenticated user's business
     /// </summary>
+    /// <param name="availableOnly">Filter to show only available services</param>
+    /// <param name="search">Search by service name or description</param>
+    /// <param name="minPrice">Minimum price filter</param>
+    /// <param name="maxPrice">Maximum price filter</param>
+    /// <returns>List of services</returns>
     [HttpGet]
     [ProducesResponseType(typeof(List<ServiceResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAllServices([FromQuery] bool? availableOnly = null)
+    public async Task<IActionResult> GetAllServices(
+        [FromQuery] bool? availableOnly = null,
+        [FromQuery] string? search = null,
+        [FromQuery] decimal? minPrice = null,
+        [FromQuery] decimal? maxPrice = null)
     {
         try
         {
@@ -36,7 +45,7 @@ public class ServicesController : ControllerBase
             }
 
             var businessId = businessIdNullable.Value;
-            var services = await _serviceService.GetAllServicesAsync(businessId, availableOnly);
+            var services = await _serviceService.GetAllServicesAsync(businessId, availableOnly, search, minPrice, maxPrice);
             return Ok(services);
         }
         catch (Exception ex)

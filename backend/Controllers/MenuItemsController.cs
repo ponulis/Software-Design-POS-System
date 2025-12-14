@@ -23,9 +23,20 @@ public class MenuItemsController : ControllerBase
     /// <summary>
     /// Get all menu items (products) for the authenticated user's business
     /// </summary>
+    /// <param name="availableOnly">Filter to show only available products</param>
+    /// <param name="search">Search by product name or description</param>
+    /// <param name="minPrice">Minimum price filter</param>
+    /// <param name="maxPrice">Maximum price filter</param>
+    /// <param name="tag">Filter by tag</param>
+    /// <returns>List of products</returns>
     [HttpGet]
     [ProducesResponseType(typeof(List<ProductResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAllMenuItems([FromQuery] bool? availableOnly = null)
+    public async Task<IActionResult> GetAllMenuItems(
+        [FromQuery] bool? availableOnly = null,
+        [FromQuery] string? search = null,
+        [FromQuery] decimal? minPrice = null,
+        [FromQuery] decimal? maxPrice = null,
+        [FromQuery] string? tag = null)
     {
         try
         {
@@ -36,7 +47,7 @@ public class MenuItemsController : ControllerBase
             }
 
             var businessId = businessIdNullable.Value;
-            var products = await _productService.GetAllProductsAsync(businessId, availableOnly);
+            var products = await _productService.GetAllProductsAsync(businessId, availableOnly, search, minPrice, maxPrice, tag);
             return Ok(products);
         }
         catch (Exception ex)

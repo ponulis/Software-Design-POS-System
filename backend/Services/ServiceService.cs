@@ -14,7 +14,12 @@ public class ServiceService
         _context = context;
     }
 
-    public async Task<List<ServiceResponse>> GetAllServicesAsync(int businessId, bool? availableOnly = null)
+    public async Task<List<ServiceResponse>> GetAllServicesAsync(
+        int businessId, 
+        bool? availableOnly = null,
+        string? search = null,
+        decimal? minPrice = null,
+        decimal? maxPrice = null)
     {
         var query = _context.Services
             .Where(s => s.BusinessId == businessId);
@@ -22,6 +27,26 @@ public class ServiceService
         if (availableOnly == true)
         {
             query = query.Where(s => s.Available);
+        }
+
+        // Search by name or description
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            query = query.Where(s => 
+                s.Name.ToLower().Contains(searchLower) ||
+                (s.Description != null && s.Description.ToLower().Contains(searchLower)));
+        }
+
+        // Price range filtering
+        if (minPrice.HasValue)
+        {
+            query = query.Where(s => s.Price >= minPrice.Value);
+        }
+
+        if (maxPrice.HasValue)
+        {
+            query = query.Where(s => s.Price <= maxPrice.Value);
         }
 
         var services = await query

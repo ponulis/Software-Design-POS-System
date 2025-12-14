@@ -14,7 +14,13 @@ public class ProductService
         _context = context;
     }
 
-    public async Task<List<ProductResponse>> GetAllProductsAsync(int businessId, bool? availableOnly = null)
+    public async Task<List<ProductResponse>> GetAllProductsAsync(
+        int businessId, 
+        bool? availableOnly = null,
+        string? search = null,
+        decimal? minPrice = null,
+        decimal? maxPrice = null,
+        string? tag = null)
     {
         var query = _context.Products
             .Where(p => p.BusinessId == businessId);
@@ -22,6 +28,32 @@ public class ProductService
         if (availableOnly == true)
         {
             query = query.Where(p => p.Available);
+        }
+
+        // Search by name or description
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            query = query.Where(p => 
+                p.Name.ToLower().Contains(searchLower) ||
+                (p.Description != null && p.Description.ToLower().Contains(searchLower)));
+        }
+
+        // Price range filtering
+        if (minPrice.HasValue)
+        {
+            query = query.Where(p => p.Price >= minPrice.Value);
+        }
+
+        if (maxPrice.HasValue)
+        {
+            query = query.Where(p => p.Price <= maxPrice.Value);
+        }
+
+        // Tag filtering
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            query = query.Where(p => p.Tags != null && p.Tags.Contains(tag));
         }
 
         var products = await query
