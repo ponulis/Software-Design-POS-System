@@ -83,8 +83,10 @@ public class DiscountsController : ControllerBase
     /// Create a new discount
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(DiscountResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateDiscount([FromBody] CreateDiscountRequest request)
     {
         try
@@ -114,8 +116,10 @@ public class DiscountsController : ControllerBase
     /// Update discount (PATCH per API contract)
     /// </summary>
     [HttpPatch("{discountId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(DiscountResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateDiscount(int discountId, [FromBody] UpdateDiscountRequest request)
     {
@@ -152,7 +156,9 @@ public class DiscountsController : ControllerBase
     /// Delete discount
     /// </summary>
     [HttpDelete("{discountId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteDiscount(int discountId)
     {
