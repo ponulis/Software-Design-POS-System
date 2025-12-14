@@ -194,8 +194,9 @@ public class AppointmentsController : ControllerBase
     /// </summary>
     [HttpDelete("{appointmentId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteAppointment(int appointmentId)
+    public async Task<IActionResult> DeleteAppointment(int appointmentId, [FromBody] CancelAppointmentRequest? request = null)
     {
         try
         {
@@ -206,7 +207,10 @@ public class AppointmentsController : ControllerBase
             }
 
             var businessId = businessIdNullable.Value;
-            var deleted = await _appointmentService.DeleteAppointmentAsync(appointmentId, businessId);
+            var cancellationReason = request?.CancellationReason;
+            var notes = request?.Notes;
+            
+            var deleted = await _appointmentService.DeleteAppointmentAsync(appointmentId, businessId, cancellationReason, notes);
 
             if (!deleted)
             {
@@ -214,6 +218,10 @@ public class AppointmentsController : ControllerBase
             }
 
             return Ok(new { message = "Appointment cancelled successfully" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {

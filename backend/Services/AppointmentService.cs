@@ -8,15 +8,17 @@ namespace backend.Services;
 public class AppointmentService
 {
     private readonly ApplicationDbContext _context;
+    private readonly PaymentService _paymentService;
     private readonly ILogger<AppointmentService> _logger;
 
     // Default business hours (9 AM - 5 PM)
     private static readonly TimeSpan BusinessOpenTime = new TimeSpan(9, 0, 0);
     private static readonly TimeSpan BusinessCloseTime = new TimeSpan(17, 0, 0);
 
-    public AppointmentService(ApplicationDbContext context, ILogger<AppointmentService> logger)
+    public AppointmentService(ApplicationDbContext context, PaymentService paymentService, ILogger<AppointmentService> logger)
     {
         _context = context;
+        _paymentService = paymentService;
         _logger = logger;
     }
 
@@ -337,9 +339,10 @@ public class AppointmentService
         return await MapToAppointmentResponseAsync(appointment);
     }
 
-    public async Task<bool> DeleteAppointmentAsync(int appointmentId, int businessId)
+    public async Task<bool> DeleteAppointmentAsync(int appointmentId, int businessId, string? cancellationReason = null, string? notes = null)
     {
         var appointment = await _context.Appointments
+            .Include(a => a.Order)
             .Where(a => a.Id == appointmentId && a.BusinessId == businessId)
             .FirstOrDefaultAsync();
 
@@ -348,14 +351,67 @@ public class AppointmentService
             return false;
         }
 
-        // Instead of deleting, mark as cancelled
+        // Verify service not completed
+        if (appointment.Status == AppointmentStatus.Completed)
+        {
+            throw new InvalidOperationException("Cannot cancel a completed appointment");
+        }
+
+        // Check if appointment is already cancelled
+        if (appointment.Status == AppointmentStatus.Cancelled)
+        {
+            throw new InvalidOperationException("Appointment is already cancelled");
+        }
+
+        // Handle prepaid appointments (check Appointment.OrderId)
+        if (appointment.OrderId.HasValue && appointment.Order != null)
+        {
+            var order = appointment.Order;
+
+            // Check if order is paid
+            if (order.Status == OrderStatus.Paid)
+            {
+                // Log cancellation with refund requirement
+                _logger.LogWarning(
+                    "Appointment cancellation requires refund: AppointmentId={AppointmentId}, OrderId={OrderId}, OrderTotal={OrderTotal}",
+                    appointment.Id, order.Id, order.Total);
+
+                // Mark order as cancelled (refund can be processed separately via PaymentService if needed)
+                // For now, we mark the order as cancelled to indicate refund is required
+                order.Status = OrderStatus.Cancelled;
+                order.UpdatedAt = DateTime.UtcNow;
+                
+                // Note: Actual refund processing (reversing payments, Stripe refunds, gift card credits)
+                // should be handled by a separate refund endpoint/service
+                // This marks the order as cancelled to indicate refund is needed
+            }
+        }
+
+        // Update cancellation reason and notes
+        if (!string.IsNullOrWhiteSpace(cancellationReason))
+        {
+            appointment.Notes = string.IsNullOrWhiteSpace(appointment.Notes)
+                ? $"Cancellation reason: {cancellationReason}"
+                : $"{appointment.Notes}\nCancellation reason: {cancellationReason}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            appointment.Notes = string.IsNullOrWhiteSpace(appointment.Notes)
+                ? notes
+                : $"{appointment.Notes}\n{notes}";
+        }
+
+        // Mark as cancelled
         appointment.Status = AppointmentStatus.Cancelled;
         appointment.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
+        // Audit logging for cancellations
         _logger.LogInformation(
-            "Appointment cancelled: AppointmentId={AppointmentId}, BusinessId={BusinessId}, Date={Date}",
-            appointment.Id, appointment.BusinessId, appointment.Date);
+            "Appointment cancelled: AppointmentId={AppointmentId}, BusinessId={BusinessId}, Date={Date}, Status={Status}, CancellationReason={CancellationReason}, OrderId={OrderId}, UpdatedAt={UpdatedAt}",
+            appointment.Id, appointment.BusinessId, appointment.Date, appointment.Status,
+            cancellationReason ?? "Not provided", appointment.OrderId, appointment.UpdatedAt);
 
         return true;
     }
