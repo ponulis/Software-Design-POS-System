@@ -119,14 +119,23 @@ public class OrdersController : ControllerBase
     /// <summary>
     /// Get all orders for the authenticated user's business
     /// </summary>
+    /// <param name="status">Filter by order status (Draft, Placed, Paid, Cancelled)</param>
+    /// <param name="startDate">Filter orders created on or after this date</param>
+    /// <param name="endDate">Filter orders created on or before this date</param>
+    /// <param name="spotId">Filter by spot ID</param>
+    /// <returns>List of orders</returns>
     [HttpGet]
     [ProducesResponseType(typeof(List<OrderResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAllOrders()
+    public async Task<IActionResult> GetAllOrders(
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] int? spotId = null)
     {
         try
         {
             var businessId = User.GetBusinessId() ?? throw new UnauthorizedAccessException("Business ID not found in token");
-            var orders = await _orderService.GetAllOrdersAsync(businessId);
+            var orders = await _orderService.GetAllOrdersAsync(businessId, status, startDate, endDate, spotId);
             return Ok(orders);
         }
         catch (Exception ex)
