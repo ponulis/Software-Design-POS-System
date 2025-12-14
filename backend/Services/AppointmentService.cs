@@ -232,8 +232,9 @@ public class AppointmentService
             appointment.OrderId = request.OrderId.Value;
         }
 
-        // Update date if provided
+        // Update date if provided (reschedule logic)
         DateTime newDate = appointment.Date;
+        bool isRescheduling = false;
         if (request.Date.HasValue)
         {
             if (request.Date.Value <= DateTime.UtcNow)
@@ -242,6 +243,13 @@ public class AppointmentService
             }
 
             ValidateBusinessHours(request.Date.Value);
+            
+            // Check if this is actually a reschedule (date changed)
+            if (request.Date.Value != appointment.Date)
+            {
+                isRescheduling = true;
+            }
+            
             newDate = request.Date.Value;
         }
 
@@ -263,6 +271,12 @@ public class AppointmentService
         if (request.Date.HasValue)
         {
             appointment.Date = request.Date.Value;
+        }
+        
+        // If rescheduling and status not explicitly set, mark as Rescheduled
+        if (isRescheduling && string.IsNullOrWhiteSpace(request.Status))
+        {
+            appointment.Status = AppointmentStatus.Rescheduled;
         }
 
         if (!string.IsNullOrWhiteSpace(request.CustomerName))
@@ -292,12 +306,33 @@ public class AppointmentService
             }
         }
 
+        // Track activity log: Update UpdatedAt timestamp
         appointment.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
+        // Activity log: Log appointment changes
+        var changeDetails = new List<string>();
+        if (isRescheduling)
+        {
+            changeDetails.Add($"Rescheduled to {appointment.Date:yyyy-MM-dd HH:mm}");
+        }
+        if (request.EmployeeId.HasValue)
+        {
+            changeDetails.Add($"Employee changed");
+        }
+        if (request.ServiceId.HasValue)
+        {
+            changeDetails.Add($"Service changed");
+        }
+        if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            changeDetails.Add($"Status changed to {appointment.Status}");
+        }
+
         _logger.LogInformation(
-            "Appointment updated: AppointmentId={AppointmentId}, BusinessId={BusinessId}, Date={Date}, Status={Status}",
-            appointment.Id, appointment.BusinessId, appointment.Date, appointment.Status);
+            "Appointment updated: AppointmentId={AppointmentId}, BusinessId={BusinessId}, Date={Date}, Status={Status}, Changes={Changes}, UpdatedAt={UpdatedAt}",
+            appointment.Id, appointment.BusinessId, appointment.Date, appointment.Status, 
+            string.Join(", ", changeDetails), appointment.UpdatedAt);
 
         return await MapToAppointmentResponseAsync(appointment);
     }
@@ -400,6 +435,139 @@ public class AppointmentService
                 $"Appointment conflicts with existing appointment on {conflict.Date:yyyy-MM-dd HH:mm}. " +
                 $"Please choose a different time slot.");
         }
+    }
+
+    /// <summary>
+    /// Get available time slots for appointments
+    /// </summary>
+    public async Task<List<AvailableSlotResponse>> GetAvailableSlotsAsync(
+        int businessId,
+        DateTime date,
+        int? employeeId = null,
+        int? serviceId = null,
+        int slotDurationMinutes = 30)
+    {
+        // Validate date is in the future
+        if (date.Date < DateTime.UtcNow.Date)
+        {
+            throw new InvalidOperationException("Date must be today or in the future");
+        }
+
+        // Get service duration if service is provided
+        int appointmentDurationMinutes = slotDurationMinutes;
+        if (serviceId.HasValue)
+        {
+            var service = await _context.Services
+                .Where(s => s.Id == serviceId.Value && s.BusinessId == businessId)
+                .FirstOrDefaultAsync();
+
+            if (service == null)
+            {
+                throw new InvalidOperationException("Service not found or doesn't belong to your business");
+            }
+
+            if (!service.Available)
+            {
+                throw new InvalidOperationException("Service is not available");
+            }
+
+            appointmentDurationMinutes = service.DurationMinutes;
+        }
+
+        // Validate employee if provided
+        if (employeeId.HasValue)
+        {
+            var employee = await _context.Users
+                .Where(u => u.Id == employeeId.Value && u.BusinessId == businessId)
+                .FirstOrDefaultAsync();
+
+            if (employee == null)
+            {
+                throw new InvalidOperationException("Employee not found or doesn't belong to your business");
+            }
+        }
+
+        // Get all existing appointments for the date
+        var startOfDay = date.Date.Add(BusinessOpenTime);
+        var endOfDay = date.Date.Add(BusinessCloseTime);
+
+        var existingAppointments = await _context.Appointments
+            .Include(a => a.Service)
+            .Include(a => a.Employee)
+            .Where(a => a.BusinessId == businessId &&
+                       a.Date.Date == date.Date &&
+                       a.Status != AppointmentStatus.Cancelled)
+            .ToListAsync();
+
+        // Filter by employee if specified
+        if (employeeId.HasValue)
+        {
+            existingAppointments = existingAppointments
+                .Where(a => a.EmployeeId == employeeId.Value)
+                .ToList();
+        }
+
+        // Generate available slots
+        var availableSlots = new List<AvailableSlotResponse>();
+        var currentTime = startOfDay;
+
+        while (currentTime.AddMinutes(appointmentDurationMinutes) <= endOfDay)
+        {
+            var slotEndTime = currentTime.AddMinutes(appointmentDurationMinutes);
+            bool isAvailable = true;
+
+            // Check if this slot conflicts with any existing appointment
+            foreach (var appointment in existingAppointments)
+            {
+                var appointmentDuration = appointment.Service?.DurationMinutes ?? 30;
+                var appointmentEndTime = appointment.Date.AddMinutes(appointmentDuration);
+
+                // Check for overlap
+                if (currentTime < appointmentEndTime && appointment.Date < slotEndTime)
+                {
+                    isAvailable = false;
+                    break;
+                }
+            }
+
+            if (isAvailable)
+            {
+                // Get employee name if employeeId is specified
+                string? employeeName = null;
+                if (employeeId.HasValue)
+                {
+                    var employee = await _context.Users
+                        .Where(u => u.Id == employeeId.Value)
+                        .FirstOrDefaultAsync();
+                    employeeName = employee?.Name;
+                }
+
+                // Get service name if serviceId is specified
+                string? serviceName = null;
+                if (serviceId.HasValue)
+                {
+                    var service = await _context.Services
+                        .Where(s => s.Id == serviceId.Value)
+                        .FirstOrDefaultAsync();
+                    serviceName = service?.Name;
+                }
+
+                availableSlots.Add(new AvailableSlotResponse
+                {
+                    StartTime = currentTime,
+                    EndTime = slotEndTime,
+                    EmployeeId = employeeId,
+                    EmployeeName = employeeName,
+                    ServiceId = serviceId,
+                    ServiceName = serviceName
+                });
+            }
+
+            // Move to next slot (increment by slot duration)
+            currentTime = currentTime.AddMinutes(slotDurationMinutes);
+        }
+
+        return availableSlots;
     }
 
     private async Task<AppointmentResponse> MapToAppointmentResponseAsync(Appointment appointment)

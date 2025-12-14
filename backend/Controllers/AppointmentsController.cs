@@ -153,6 +153,43 @@ public class AppointmentsController : ControllerBase
     }
 
     /// <summary>
+    /// Get available time slots for appointments
+    /// </summary>
+    [HttpGet("available-slots")]
+    [ProducesResponseType(typeof(List<AvailableSlotResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetAvailableSlots(
+        [FromQuery] DateTime date,
+        [FromQuery] int? employeeId = null,
+        [FromQuery] int? serviceId = null,
+        [FromQuery] int slotDurationMinutes = 30)
+    {
+        try
+        {
+            var businessIdNullable = User.GetBusinessId();
+            if (!businessIdNullable.HasValue)
+            {
+                throw new UnauthorizedAccessException("Business ID not found in token");
+            }
+
+            var businessId = businessIdNullable.Value;
+            var availableSlots = await _appointmentService.GetAvailableSlotsAsync(
+                businessId, date, employeeId, serviceId, slotDurationMinutes);
+            
+            return Ok(availableSlots);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving available slots");
+            return StatusCode(500, new { message = "An error occurred while retrieving available slots" });
+        }
+    }
+
+    /// <summary>
     /// Cancel appointment (DELETE per API contract)
     /// </summary>
     [HttpDelete("{appointmentId}")]
