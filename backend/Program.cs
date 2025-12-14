@@ -142,6 +142,7 @@ builder.Services.AddScoped<AppointmentService>();
 builder.Services.AddScoped<DiscountService>();
 builder.Services.AddScoped<TaxService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<BusinessService>();
 
 builder.Services.AddCors(options =>
 {
