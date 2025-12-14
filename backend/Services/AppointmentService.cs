@@ -115,7 +115,7 @@ public class AppointmentService
         return await MapToAppointmentResponseAsync(appointment);
     }
 
-    public async Task<List<AppointmentResponse>> GetAllAppointmentsAsync(
+    public async Task<PaginatedResponse<AppointmentResponse>> GetAllAppointmentsAsync(
         int businessId, 
         DateTime? startDate = null, 
         DateTime? endDate = null, 
@@ -124,7 +124,9 @@ public class AppointmentService
         string? customerName = null,
         string? customerPhone = null,
         string? status = null,
-        string? paymentStatus = null)
+        string? paymentStatus = null,
+        int page = 1,
+        int pageSize = 50)
     {
         var query = _context.Appointments
             .Include(a => a.Service)
@@ -185,8 +187,14 @@ public class AppointmentService
             }
         }
 
+        // Get total count before pagination
+        var totalCount = await query.CountAsync();
+
+        // Apply pagination
         var appointments = await query
             .OrderBy(a => a.Date)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
         var responses = new List<AppointmentResponse>();
@@ -195,7 +203,13 @@ public class AppointmentService
             responses.Add(await MapToAppointmentResponseAsync(appointment));
         }
 
-        return responses;
+        return new PaginatedResponse<AppointmentResponse>
+        {
+            Data = responses,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<AppointmentResponse?> GetAppointmentByIdAsync(int appointmentId, int businessId)

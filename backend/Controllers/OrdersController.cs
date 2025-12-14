@@ -123,19 +123,28 @@ public class OrdersController : ControllerBase
     /// <param name="startDate">Filter orders created on or after this date</param>
     /// <param name="endDate">Filter orders created on or before this date</param>
     /// <param name="spotId">Filter by spot ID</param>
-    /// <returns>List of orders</returns>
+    /// <param name="page">Page number (1-based, default: 1)</param>
+    /// <param name="pageSize">Number of items per page (default: 50, max: 100)</param>
+    /// <returns>Paginated list of orders</returns>
     [HttpGet]
-    [ProducesResponseType(typeof(List<OrderResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponse<OrderResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllOrders(
         [FromQuery] string? status = null,
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
-        [FromQuery] int? spotId = null)
+        [FromQuery] int? spotId = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         try
         {
+            // Validate pagination parameters
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 50;
+            if (pageSize > 100) pageSize = 100; // Cap at 100 for performance
+
             var businessId = User.GetBusinessId() ?? throw new UnauthorizedAccessException("Business ID not found in token");
-            var orders = await _orderService.GetAllOrdersAsync(businessId, status, startDate, endDate, spotId);
+            var orders = await _orderService.GetAllOrdersAsync(businessId, status, startDate, endDate, spotId, page, pageSize);
             return Ok(orders);
         }
         catch (Exception ex)

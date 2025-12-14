@@ -55,8 +55,19 @@ public class AppointmentsController : ControllerBase
     /// Get all appointments for the authenticated user's business
     /// Supports filtering by date range, employee, service, customer, status, and payment status
     /// </summary>
+    /// <param name="startDate">Filter appointments on or after this date</param>
+    /// <param name="endDate">Filter appointments on or before this date</param>
+    /// <param name="employeeId">Filter by employee ID</param>
+    /// <param name="serviceId">Filter by service ID</param>
+    /// <param name="customerName">Filter by customer name (partial match)</param>
+    /// <param name="customerPhone">Filter by customer phone (partial match)</param>
+    /// <param name="status">Filter by appointment status</param>
+    /// <param name="paymentStatus">Filter by payment status</param>
+    /// <param name="page">Page number (1-based, default: 1)</param>
+    /// <param name="pageSize">Number of items per page (default: 50, max: 100)</param>
+    /// <returns>Paginated list of appointments</returns>
     [HttpGet]
-    [ProducesResponseType(typeof(List<AppointmentResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponse<AppointmentResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllAppointments(
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
@@ -65,10 +76,17 @@ public class AppointmentsController : ControllerBase
         [FromQuery] string? customerName = null,
         [FromQuery] string? customerPhone = null,
         [FromQuery] string? status = null,
-        [FromQuery] string? paymentStatus = null)
+        [FromQuery] string? paymentStatus = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         try
         {
+            // Validate pagination parameters
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 50;
+            if (pageSize > 100) pageSize = 100; // Cap at 100 for performance
+
             var businessIdNullable = User.GetBusinessId();
             if (!businessIdNullable.HasValue)
             {
@@ -77,7 +95,7 @@ public class AppointmentsController : ControllerBase
 
             var businessId = businessIdNullable.Value;
             var appointments = await _appointmentService.GetAllAppointmentsAsync(
-                businessId, startDate, endDate, employeeId, serviceId, customerName, customerPhone, status, paymentStatus);
+                businessId, startDate, endDate, employeeId, serviceId, customerName, customerPhone, status, paymentStatus, page, pageSize);
             return Ok(appointments);
         }
         catch (Exception ex)
