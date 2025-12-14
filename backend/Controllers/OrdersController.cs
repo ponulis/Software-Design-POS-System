@@ -23,6 +23,24 @@ public class OrdersController : ControllerBase
     /// <summary>
     /// Create a new order
     /// </summary>
+    /// <param name="request">Order details including items, spot ID, and optional discount</param>
+    /// <returns>Created order with calculated totals</returns>
+    /// <remarks>
+    /// Sample request:
+    /// 
+    ///     POST /api/orders
+    ///     {
+    ///         "spotId": 1,
+    ///         "items": [
+    ///             {
+    ///                 "menuId": 1,
+    ///                 "quantity": 2,
+    ///                 "price": 10.50
+    ///             }
+    ///         ],
+    ///         "discount": 0
+    ///     }
+    /// </remarks>
     [HttpPost]
     [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
