@@ -60,6 +60,9 @@ public class ApplicationDbContext : DbContext
 
             // Index for business lookup
             entity.HasIndex(e => e.BusinessId);
+            
+            // Composite index for filtering users by BusinessId and Role
+            entity.HasIndex(e => new { e.BusinessId, e.Role });
         });
 
         // Product configuration
@@ -88,6 +91,9 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => e.BusinessId);
+            
+            // Composite index for filtering products by BusinessId and Available status
+            entity.HasIndex(e => new { e.BusinessId, e.Available });
         });
 
         // Service configuration
@@ -130,6 +136,9 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.BusinessId);
             entity.HasIndex(e => e.CreatedBy);
             entity.HasIndex(e => e.Status);
+            
+            // Composite index for common query pattern: Orders by BusinessId and Status
+            entity.HasIndex(e => new { e.BusinessId, e.Status });
         });
 
         // OrderItem configuration
@@ -189,6 +198,13 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.BusinessId);
             entity.HasIndex(e => e.Date);
             entity.HasIndex(e => e.Status);
+            
+            // Composite index for common query patterns:
+            // - Appointments by Date and BusinessId (for date range queries)
+            // - Appointments by EmployeeId and BusinessId (for employee schedules)
+            entity.HasIndex(e => new { e.BusinessId, e.Date });
+            entity.HasIndex(e => new { e.BusinessId, e.EmployeeId });
+            entity.HasIndex(e => new { e.Date, e.EmployeeId, e.BusinessId });
         });
 
         // Tax configuration
