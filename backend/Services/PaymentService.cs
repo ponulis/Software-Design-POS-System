@@ -443,12 +443,14 @@ public class PaymentService
         };
     }
 
-    public async Task<List<PaymentResponse>> GetAllPaymentsAsync(
+    public async Task<PaginatedResponse<PaymentResponse>> GetAllPaymentsAsync(
         int businessId, 
         int? orderId = null,
         string? method = null,
         DateTime? startDate = null,
-        DateTime? endDate = null)
+        DateTime? endDate = null,
+        int page = 1,
+        int pageSize = 50)
     {
         var query = _context.Payments
             .Include(p => p.Order)
@@ -479,11 +481,25 @@ public class PaymentService
             query = query.Where(p => p.PaidAt <= endDate.Value);
         }
 
+        // Get total count before pagination
+        var totalCount = await query.CountAsync();
+
+        // Apply pagination
         var payments = await query
             .OrderByDescending(p => p.PaidAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return payments.Select(p => MapToPaymentResponse(p)).ToList();
+        var paymentResponses = payments.Select(p => MapToPaymentResponse(p)).ToList();
+
+        return new PaginatedResponse<PaymentResponse>
+        {
+            Data = paymentResponses,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
     }
 
     /// <summary>

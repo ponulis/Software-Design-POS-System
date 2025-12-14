@@ -63,17 +63,26 @@ public class PaymentsController : ControllerBase
     /// <param name="method">Filter by payment method (Cash, Card, GiftCard)</param>
     /// <param name="startDate">Filter payments made on or after this date</param>
     /// <param name="endDate">Filter payments made on or before this date</param>
-    /// <returns>List of payments</returns>
+    /// <param name="page">Page number (1-based, default: 1)</param>
+    /// <param name="pageSize">Number of items per page (default: 50, max: 100)</param>
+    /// <returns>Paginated list of payments</returns>
     [HttpGet]
-    [ProducesResponseType(typeof(List<PaymentResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponse<PaymentResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllPayments(
         [FromQuery] int? orderId = null,
         [FromQuery] string? method = null,
         [FromQuery] DateTime? startDate = null,
-        [FromQuery] DateTime? endDate = null)
+        [FromQuery] DateTime? endDate = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
     {
         try
         {
+            // Validate pagination parameters
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 50;
+            if (pageSize > 100) pageSize = 100; // Cap at 100 for performance
+
             var businessIdNullable = User.GetBusinessId();
             if (!businessIdNullable.HasValue)
             {
@@ -81,7 +90,7 @@ public class PaymentsController : ControllerBase
             }
 
             var businessId = businessIdNullable.Value;
-            var payments = await _paymentService.GetAllPaymentsAsync(businessId, orderId, method, startDate, endDate);
+            var payments = await _paymentService.GetAllPaymentsAsync(businessId, orderId, method, startDate, endDate, page, pageSize);
             return Ok(payments);
         }
         catch (Exception ex)

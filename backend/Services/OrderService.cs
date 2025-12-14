@@ -78,12 +78,14 @@ public class OrderService
         return MapToOrderResponse(order);
     }
 
-    public async Task<List<OrderResponse>> GetAllOrdersAsync(
+    public async Task<PaginatedResponse<OrderResponse>> GetAllOrdersAsync(
         int businessId,
         string? status = null,
         DateTime? startDate = null,
         DateTime? endDate = null,
-        int? spotId = null)
+        int? spotId = null,
+        int page = 1,
+        int pageSize = 50)
     {
         var query = _context.Orders
             .Where(o => o.BusinessId == businessId);
@@ -114,13 +116,27 @@ public class OrderService
             query = query.Where(o => o.SpotId == spotId.Value);
         }
 
+        // Get total count before pagination
+        var totalCount = await query.CountAsync();
+
+        // Apply pagination
         var orders = await query
             .Include(o => o.Items)
             .ThenInclude(i => i.Product)
             .OrderByDescending(o => o.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return orders.Select(MapToOrderResponse).ToList();
+        var orderResponses = orders.Select(MapToOrderResponse).ToList();
+
+        return new PaginatedResponse<OrderResponse>
+        {
+            Data = orderResponses,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<OrderResponse?> GetOrderByIdAsync(int orderId, int businessId)
