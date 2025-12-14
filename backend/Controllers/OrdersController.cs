@@ -3,6 +3,7 @@ using backend.Extensions;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace backend.Controllers;
 
@@ -223,6 +224,68 @@ public class OrdersController : ControllerBase
         {
             _logger.LogError(ex, "Error deleting order");
             return StatusCode(500, new { message = "An error occurred while deleting the order" });
+        }
+    }
+
+    /// <summary>
+    /// Process refund for an order
+    /// </summary>
+    /// <param name="orderId">Order ID</param>
+    /// <param name="request">Refund request with optional reason and amount</param>
+    /// <returns>Refund details including refunded payments</returns>
+    /// <remarks>
+    /// Sample request:
+    /// 
+    ///     POST /api/orders/{orderId}/refund
+    ///     {
+    ///         "reason": "Customer cancellation",
+    ///         "amount": 50.00
+    ///     }
+    /// 
+    /// Note: If amount is not provided, full refund will be processed.
+    /// </remarks>
+    [HttpPost("{orderId}/refund")]
+    [Authorize(Roles = "Manager,Admin")]
+    [ProducesResponseType(typeof(RefundResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ProcessRefund(int orderId, [FromBody] RefundRequest? request = null)
+    {
+        try
+        {
+            var businessIdNullable = User.GetBusinessId();
+            if (!businessIdNullable.HasValue)
+            {
+                throw new UnauthorizedAccessException("Business ID not found in token");
+            }
+
+            var businessId = businessIdNullable.Value;
+            var userIdNullable = User.GetUserId();
+            if (!userIdNullable.HasValue)
+            {
+                throw new UnauthorizedAccessException("User ID not found in token");
+            }
+            var userId = userIdNullable.Value;
+
+            request ??= new RefundRequest();
+
+            var refundService = HttpContext.RequestServices.GetRequiredService<PaymentService>();
+            var refund = await refundService.ProcessRefundAsync(orderId, request, businessId, userId);
+            return Ok(refund);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing refund");
+            return StatusCode(500, new { message = "An error occurred while processing the refund" });
         }
     }
 }

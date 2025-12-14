@@ -120,4 +120,56 @@ public class StripeService
             throw new InvalidOperationException($"Failed to cancel payment intent: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Create a Stripe refund for a payment intent
+    /// </summary>
+    public async Task<Refund> CreateRefundAsync(string paymentIntentId, decimal? amount = null, string? reason = null)
+    {
+        try
+        {
+            var service = new RefundService();
+            
+            var options = new RefundCreateOptions
+            {
+                PaymentIntent = paymentIntentId,
+                Reason = reason != null ? MapRefundReason(reason) : null
+            };
+
+            if (amount.HasValue)
+            {
+                options.Amount = (long)(amount.Value * 100); // Convert to cents
+            }
+
+            var refund = await service.CreateAsync(options);
+
+            return refund;
+        }
+        catch (StripeException ex)
+        {
+            _logger.LogError(ex, "Stripe error creating refund");
+            throw new InvalidOperationException($"Stripe refund failed: {ex.Message}");
+        }
+    }
+
+    private static string MapRefundReason(string? reason)
+    {
+        // Map common refund reasons to Stripe refund reasons
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return "requested_by_customer";
+        }
+
+        var lowerReason = reason.ToLower();
+        if (lowerReason.Contains("duplicate") || lowerReason.Contains("fraud"))
+        {
+            return "fraudulent";
+        }
+        if (lowerReason.Contains("cancel") || lowerReason.Contains("return"))
+        {
+            return "requested_by_customer";
+        }
+
+        return "requested_by_customer";
+    }
 }

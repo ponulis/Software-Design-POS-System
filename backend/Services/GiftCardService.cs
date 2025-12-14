@@ -146,6 +146,38 @@ public class GiftCardService
     }
 
     /// <summary>
+    /// Credit amount back to gift card balance (for refunds)
+    /// </summary>
+    public async Task<GiftCardResponse> CreditGiftCardAsync(string code, decimal amount, int businessId)
+    {
+        var giftCard = await _context.GiftCards
+            .Where(gc => gc.Code == code && gc.BusinessId == businessId)
+            .FirstOrDefaultAsync();
+
+        if (giftCard == null)
+        {
+            throw new InvalidOperationException("Gift card not found");
+        }
+
+        // Validate amount is positive
+        if (amount <= 0)
+        {
+            throw new InvalidOperationException("Credit amount must be greater than zero");
+        }
+
+        // Credit balance back
+        giftCard.Balance += amount;
+
+        // Ensure balance doesn't exceed original amount (if there's a cap)
+        // Note: This is optional - some systems allow balance to exceed original amount
+        // if multiple credits are applied
+
+        await _context.SaveChangesAsync();
+
+        return MapToGiftCardResponse(giftCard);
+    }
+
+    /// <summary>
     /// Deduct amount from gift card balance
     /// </summary>
     public async Task<GiftCardResponse> DeductBalanceAsync(string code, decimal amount, int businessId)

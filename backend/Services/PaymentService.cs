@@ -577,6 +577,179 @@ public class PaymentService
     }
 
     /// <summary>
+    /// Process refund for an order
+    /// </summary>
+    public async Task<RefundResponse> ProcessRefundAsync(int orderId, RefundRequest request, int businessId, int userId)
+    {
+        // Validate order exists and belongs to business
+        var order = await _context.Orders
+            .Where(o => o.Id == orderId && o.BusinessId == businessId)
+            .Include(o => o.Payments)
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            throw new InvalidOperationException("Order not found or doesn't belong to your business");
+        }
+
+        // Validate order is paid
+        if (order.Status != OrderStatus.Paid)
+        {
+            throw new InvalidOperationException($"Cannot refund order with status {order.Status}. Order must be Paid.");
+        }
+
+        // Calculate refund amount
+        var refundAmount = request.Amount ?? order.Total;
+        
+        if (refundAmount <= 0)
+        {
+            throw new InvalidOperationException("Refund amount must be greater than zero");
+        }
+
+        if (refundAmount > order.Total)
+        {
+            throw new InvalidOperationException($"Refund amount ({refundAmount:C}) cannot exceed order total ({order.Total:C})");
+        }
+
+        var refundedPayments = new List<RefundPaymentResponse>();
+        var remainingRefund = refundAmount;
+        var paymentsToRefund = order.Payments.OrderByDescending(p => p.PaidAt).ToList();
+
+        // Process refunds for each payment, starting with most recent
+        foreach (var payment in paymentsToRefund)
+        {
+            if (remainingRefund <= 0)
+            {
+                break;
+            }
+
+            var paymentRefundAmount = Math.Min(remainingRefund, payment.Amount);
+            var refundPayment = new RefundPaymentResponse
+            {
+                PaymentId = payment.Id,
+                PaymentMethod = payment.Method.ToString(),
+                RefundedAmount = paymentRefundAmount
+            };
+
+            try
+            {
+                switch (payment.Method)
+                {
+                    case PaymentMethod.Card:
+                        // Process Stripe refund
+                        if (_stripeService != null && !string.IsNullOrEmpty(payment.TransactionId))
+                        {
+                            try
+                            {
+                                var stripeRefund = await _stripeService.CreateRefundAsync(
+                                    payment.TransactionId,
+                                    paymentRefundAmount,
+                                    request.Reason);
+
+                                refundPayment.RefundTransactionId = stripeRefund.Id;
+                                refundPayment.Status = "Success";
+                                
+                                _logger.LogInformation(
+                                    "Stripe refund processed: PaymentId={PaymentId}, RefundId={RefundId}, Amount={Amount}",
+                                    payment.Id, stripeRefund.Id, paymentRefundAmount);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to process Stripe refund for PaymentId={PaymentId}", payment.Id);
+                                refundPayment.Status = "Failed";
+                                throw new InvalidOperationException($"Failed to process Stripe refund: {ex.Message}");
+                            }
+                        }
+                        else
+                        {
+                            refundPayment.Status = "Pending"; // Manual refund required
+                            _logger.LogWarning(
+                                "Card payment refund requires manual processing: PaymentId={PaymentId}, TransactionId={TransactionId}",
+                                payment.Id, payment.TransactionId);
+                        }
+                        break;
+
+                    case PaymentMethod.GiftCard:
+                        // Credit gift card balance
+                        if (!string.IsNullOrEmpty(payment.TransactionId))
+                        {
+                            try
+                            {
+                                await _giftCardService.CreditGiftCardAsync(payment.TransactionId, paymentRefundAmount, businessId);
+                                refundPayment.Status = "Success";
+                                
+                                _logger.LogInformation(
+                                    "Gift card refund processed: PaymentId={PaymentId}, GiftCardCode={GiftCardCode}, Amount={Amount}",
+                                    payment.Id, payment.TransactionId, paymentRefundAmount);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to credit gift card for PaymentId={PaymentId}", payment.Id);
+                                refundPayment.Status = "Failed";
+                                throw new InvalidOperationException($"Failed to credit gift card: {ex.Message}");
+                            }
+                        }
+                        else
+                        {
+                            refundPayment.Status = "Failed";
+                            throw new InvalidOperationException("Gift card code not found for refund");
+                        }
+                        break;
+
+                    case PaymentMethod.Cash:
+                        // Cash refund - just record it (manual processing)
+                        refundPayment.Status = "Success";
+                        _logger.LogInformation(
+                            "Cash refund recorded: PaymentId={PaymentId}, Amount={Amount}",
+                            payment.Id, paymentRefundAmount);
+                        break;
+                }
+
+                remainingRefund -= paymentRefundAmount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing refund for PaymentId={PaymentId}", payment.Id);
+                refundPayment.Status = "Failed";
+                throw;
+            }
+
+            refundedPayments.Add(refundPayment);
+        }
+
+        // Update order status
+        if (refundAmount >= order.Total)
+        {
+            // Full refund - mark order as cancelled
+            order.Status = OrderStatus.Cancelled;
+        }
+        else
+        {
+            // Partial refund - keep order as paid but log the refund
+            // Note: In a real system, you might want to track partial refunds differently
+        }
+
+        order.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        // Audit logging
+        _logger.LogInformation(
+            "Refund processed: OrderId={OrderId}, RefundAmount={RefundAmount}, Reason={Reason}, RefundedPayments={RefundedPaymentsCount}",
+            orderId, refundAmount, request.Reason ?? "N/A", refundedPayments.Count);
+
+        return new RefundResponse
+        {
+            OrderId = orderId,
+            RefundAmount = refundAmount,
+            RefundMethod = refundAmount >= order.Total ? "Full" : "Partial",
+            Reason = request.Reason,
+            RefundedPayments = refundedPayments,
+            OrderStatus = order.Status.ToString(),
+            RefundedAt = DateTime.UtcNow
+        };
+    }
+
+    /// <summary>
     /// Update order status to Paid if total payments equal or exceed order total
     /// </summary>
     private async Task UpdateOrderStatusIfFullyPaidAsync(Order order)
