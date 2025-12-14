@@ -83,8 +83,10 @@ public class TaxesController : ControllerBase
     /// Create a new tax rule
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(TaxResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateTax([FromBody] CreateTaxRequest request)
     {
         try
@@ -114,8 +116,10 @@ public class TaxesController : ControllerBase
     /// Update tax rule (PATCH per API contract)
     /// </summary>
     [HttpPatch("{taxId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(TaxResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateTax(int taxId, [FromBody] UpdateTaxRequest request)
     {
@@ -152,7 +156,9 @@ public class TaxesController : ControllerBase
     /// Delete tax rule
     /// </summary>
     [HttpDelete("{taxId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteTax(int taxId)
     {

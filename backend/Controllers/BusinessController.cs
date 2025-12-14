@@ -76,8 +76,10 @@ public class BusinessController : ControllerBase
     ///     }
     /// </remarks>
     [HttpPatch]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(BusinessResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateBusiness([FromBody] UpdateBusinessRequest request)
     {

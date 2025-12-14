@@ -83,8 +83,10 @@ public class MenuItemsController : ControllerBase
     /// Create a new menu item (product)
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(ProductResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateMenuItem([FromBody] CreateProductRequest request)
     {
         try
@@ -121,8 +123,10 @@ public class MenuItemsController : ControllerBase
     /// Update a menu item (product)
     /// </summary>
     [HttpPatch("{menuItemId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(ProductResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateMenuItem(int menuItemId, [FromBody] UpdateProductRequest request)
     {
@@ -161,8 +165,10 @@ public class MenuItemsController : ControllerBase
     /// Delete a menu item (product)
     /// </summary>
     [HttpDelete("{menuItemId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteMenuItem(int menuItemId)
     {

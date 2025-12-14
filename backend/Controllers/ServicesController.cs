@@ -83,8 +83,10 @@ public class ServicesController : ControllerBase
     /// Create a new service
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(ServiceResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateService([FromBody] CreateServiceRequest request)
     {
         try
@@ -126,8 +128,10 @@ public class ServicesController : ControllerBase
     /// Update a service
     /// </summary>
     [HttpPatch("{serviceId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(ServiceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateService(int serviceId, [FromBody] UpdateServiceRequest request)
     {
@@ -171,8 +175,10 @@ public class ServicesController : ControllerBase
     /// Delete a service
     /// </summary>
     [HttpDelete("{serviceId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteService(int serviceId)
     {

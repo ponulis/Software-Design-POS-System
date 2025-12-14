@@ -37,8 +37,10 @@ public class EmployeesController : ControllerBase
     ///     }
     /// </remarks>
     [HttpPost]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(EmployeeResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateEmployee([FromBody] CreateEmployeeRequest request)
     {
         try
@@ -134,8 +136,10 @@ public class EmployeesController : ControllerBase
     /// <param name="request">Employee fields to modify</param>
     /// <returns>Updated employee information</returns>
     [HttpPatch("{employeeId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(typeof(EmployeeResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateEmployee(int employeeId, [FromBody] UpdateEmployeeRequest request)
     {
@@ -174,7 +178,9 @@ public class EmployeesController : ControllerBase
     /// <param name="employeeId">Employee ID</param>
     /// <returns>Success message</returns>
     [HttpDelete("{employeeId}")]
+    [Authorize(Roles = "Manager,Admin")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteEmployee(int employeeId)
     {
