@@ -143,6 +143,7 @@ builder.Services.AddScoped<DiscountService>();
 builder.Services.AddScoped<TaxService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<BusinessService>();
+builder.Services.AddScoped<AnalyticsService>();
 
 builder.Services.AddCors(options =>
 {
