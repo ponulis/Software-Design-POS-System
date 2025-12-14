@@ -53,6 +53,7 @@ public class AppointmentsController : ControllerBase
 
     /// <summary>
     /// Get all appointments for the authenticated user's business
+    /// Supports filtering by date range, employee, service, customer, status, and payment status
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(List<AppointmentResponse>), StatusCodes.Status200OK)]
@@ -60,7 +61,11 @@ public class AppointmentsController : ControllerBase
         [FromQuery] DateTime? startDate = null,
         [FromQuery] DateTime? endDate = null,
         [FromQuery] int? employeeId = null,
-        [FromQuery] int? serviceId = null)
+        [FromQuery] int? serviceId = null,
+        [FromQuery] string? customerName = null,
+        [FromQuery] string? customerPhone = null,
+        [FromQuery] string? status = null,
+        [FromQuery] string? paymentStatus = null)
     {
         try
         {
@@ -71,7 +76,8 @@ public class AppointmentsController : ControllerBase
             }
 
             var businessId = businessIdNullable.Value;
-            var appointments = await _appointmentService.GetAllAppointmentsAsync(businessId, startDate, endDate, employeeId, serviceId);
+            var appointments = await _appointmentService.GetAllAppointmentsAsync(
+                businessId, startDate, endDate, employeeId, serviceId, customerName, customerPhone, status, paymentStatus);
             return Ok(appointments);
         }
         catch (Exception ex)

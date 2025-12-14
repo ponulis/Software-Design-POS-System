@@ -14,6 +14,8 @@ public class AppointmentResponse
     public string? Notes { get; set; }
     public string Status { get; set; } = string.Empty;
     public int? OrderId { get; set; }
+    public string? OrderStatus { get; set; } // Payment status via Order.Status
+    public decimal? OrderTotal { get; set; } // Order total if OrderId exists
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }

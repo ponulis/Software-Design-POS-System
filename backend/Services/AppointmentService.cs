@@ -115,13 +115,24 @@ public class AppointmentService
         return await MapToAppointmentResponseAsync(appointment);
     }
 
-    public async Task<List<AppointmentResponse>> GetAllAppointmentsAsync(int businessId, DateTime? startDate = null, DateTime? endDate = null, int? employeeId = null, int? serviceId = null)
+    public async Task<List<AppointmentResponse>> GetAllAppointmentsAsync(
+        int businessId, 
+        DateTime? startDate = null, 
+        DateTime? endDate = null, 
+        int? employeeId = null, 
+        int? serviceId = null,
+        string? customerName = null,
+        string? customerPhone = null,
+        string? status = null,
+        string? paymentStatus = null)
     {
         var query = _context.Appointments
             .Include(a => a.Service)
             .Include(a => a.Employee)
+            .Include(a => a.Order)
             .Where(a => a.BusinessId == businessId);
 
+        // Filter by date range
         if (startDate.HasValue)
         {
             query = query.Where(a => a.Date >= startDate.Value);
@@ -132,14 +143,46 @@ public class AppointmentService
             query = query.Where(a => a.Date <= endDate.Value);
         }
 
+        // Filter by employee
         if (employeeId.HasValue)
         {
             query = query.Where(a => a.EmployeeId == employeeId.Value);
         }
 
+        // Filter by service
         if (serviceId.HasValue)
         {
             query = query.Where(a => a.ServiceId == serviceId.Value);
+        }
+
+        // Filter by customer name
+        if (!string.IsNullOrWhiteSpace(customerName))
+        {
+            query = query.Where(a => a.CustomerName.Contains(customerName));
+        }
+
+        // Filter by customer phone
+        if (!string.IsNullOrWhiteSpace(customerPhone))
+        {
+            query = query.Where(a => a.CustomerPhone.Contains(customerPhone));
+        }
+
+        // Filter by appointment status
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (Enum.TryParse<AppointmentStatus>(status, true, out var appointmentStatus))
+            {
+                query = query.Where(a => a.Status == appointmentStatus);
+            }
+        }
+
+        // Filter by payment status (via Order.Status)
+        if (!string.IsNullOrWhiteSpace(paymentStatus))
+        {
+            if (Enum.TryParse<OrderStatus>(paymentStatus, true, out var orderStatus))
+            {
+                query = query.Where(a => a.Order != null && a.Order.Status == orderStatus);
+            }
         }
 
         var appointments = await query
@@ -160,6 +203,7 @@ public class AppointmentService
         var appointment = await _context.Appointments
             .Include(a => a.Service)
             .Include(a => a.Employee)
+            .Include(a => a.Order)
             .Where(a => a.Id == appointmentId && a.BusinessId == businessId)
             .FirstOrDefaultAsync();
 
@@ -629,13 +673,23 @@ public class AppointmentService
     private async Task<AppointmentResponse> MapToAppointmentResponseAsync(Appointment appointment)
     {
         // Reload with includes if not already loaded
-        if (appointment.Service == null || appointment.Employee == null)
+        if (appointment.Service == null || appointment.Employee == null || (appointment.OrderId.HasValue && appointment.Order == null))
         {
             appointment = await _context.Appointments
                 .Include(a => a.Service)
                 .Include(a => a.Employee)
+                .Include(a => a.Order)
                 .Where(a => a.Id == appointment.Id)
                 .FirstAsync();
+        }
+
+        // Get order status and total if order exists
+        string? orderStatus = null;
+        decimal? orderTotal = null;
+        if (appointment.OrderId.HasValue && appointment.Order != null)
+        {
+            orderStatus = appointment.Order.Status.ToString();
+            orderTotal = appointment.Order.Total;
         }
 
         return new AppointmentResponse
@@ -652,6 +706,8 @@ public class AppointmentService
             Notes = appointment.Notes,
             Status = appointment.Status.ToString(),
             OrderId = appointment.OrderId,
+            OrderStatus = orderStatus, // Payment status via Order.Status
+            OrderTotal = orderTotal, // Order total if OrderId exists
             CreatedAt = appointment.CreatedAt,
             UpdatedAt = appointment.UpdatedAt
         };
