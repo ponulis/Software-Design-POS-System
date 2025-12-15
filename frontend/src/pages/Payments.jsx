@@ -2,6 +2,7 @@ import { useState } from "react";
 import PaymentsList from "../components/payments/PaymentsList";
 import { useOrders } from "../hooks/useOrders";
 import PaymentDetails from "../components/payments/PaymentDetails";
+import OrderCreation from "../components/orders/OrderCreation";
 
 export default function Payments() {
   const {
@@ -11,7 +12,10 @@ export default function Payments() {
     error,
     selectOrder,
     refreshOrders,
+    createOrder,
   } = useOrders();
+  
+  const [showOrderCreation, setShowOrderCreation] = useState(false);
 
   const [filters, setFilters] = useState({
     status: '',
