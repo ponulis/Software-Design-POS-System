@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from "react"; 
+import React, { useState, useEffect } from "react";
 import PaymentButton from "./PaymentButton";
 import OrderDetails from "./OrderDetails";
 import CheckoutDetails from "./CheckoutDetails";
 import ReceiptModal from "../receipts/ReceiptModal";
+import StripeProvider from "../stripe/StripeProvider";
+import CardPaymentHandler from "./CardPaymentHandler";
 import { ordersApi } from "../../api/orders";
+import { paymentsApi } from "../../api/payments";
+import { useToast } from "../../context/ToastContext";
+import { getErrorMessage } from "../../utils/errorHandler";
 
 export default function PaymentDetails({ order }) {
   const [selectedPaymentType, setSelectedPaymentType] = useState('Card');
@@ -65,11 +70,16 @@ export default function PaymentDetails({ order }) {
     cashReceived: null,
     giftCardCode: null,
     giftCardBalance: null,
+    paymentIntentId: null,
+    clientSecret: null,
   });
   const [processing, setProcessing] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [cardPaymentHandler, setCardPaymentHandler] = useState(null);
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   const handlePaymentDataChange = (data) => {
-    setPaymentData(data);
+    setPaymentData((prev) => ({ ...prev, ...data }));
   };
 
   const handleProcessPayment = async () => {
@@ -80,16 +90,21 @@ export default function PaymentDetails({ order }) {
     // Validate payment data based on payment type
     if (selectedPaymentType === 'Cash') {
       if (!paymentData.cashReceived || paymentData.cashReceived < numericTotal) {
-        alert('Please enter sufficient cash amount');
+        showErrorToast('Please enter sufficient cash amount');
         return;
       }
     } else if (selectedPaymentType === 'Gift Card') {
       if (!paymentData.giftCardCode || !paymentData.giftCardBalance) {
-        alert('Please validate a gift card');
+        showErrorToast('Please validate a gift card');
         return;
       }
       if (paymentData.giftCardBalance < numericTotal) {
-        alert('Insufficient gift card balance');
+        showErrorToast('Insufficient gift card balance');
+        return;
+      }
+    } else if (selectedPaymentType === 'Card') {
+      if (!paymentData.paymentIntentId || !paymentData.clientSecret) {
+        showErrorToast('Please wait for payment to initialize');
         return;
       }
     }
@@ -100,18 +115,33 @@ export default function PaymentDetails({ order }) {
 
     setProcessing(true);
     try {
-      const paymentRequest = {
-        orderId: orderDetails.id,
-        amount: numericTotal,
-        method: selectedPaymentType === 'Gift Card' ? 'GiftCard' : selectedPaymentType,
-        cashReceived: selectedPaymentType === 'Cash' ? paymentData.cashReceived : null,
-        giftCardCode: selectedPaymentType === 'Gift Card' ? paymentData.giftCardCode : null,
-      };
+      let payment;
 
-      const { paymentsApi } = await import('../../api/payments');
-      const payment = await paymentsApi.create(paymentRequest);
+      if (selectedPaymentType === 'Card') {
+        // For Stripe card payments, use the card payment handler
+        if (!cardPaymentHandler || !paymentData.clientSecret) {
+          throw new Error('Card payment not ready. Please wait for initialization.');
+        }
 
-      alert(`Payment processed successfully! Payment ID: ${payment.id}`);
+        payment = await cardPaymentHandler.confirmPayment(
+          paymentData.clientSecret,
+          orderDetails.id,
+          paymentData.paymentIntentId
+        );
+      } else {
+        // For Cash and Gift Card, use direct payment API
+        const paymentRequest = {
+          orderId: orderDetails.id,
+          amount: numericTotal,
+          method: selectedPaymentType === 'Gift Card' ? 'GiftCard' : selectedPaymentType,
+          cashReceived: selectedPaymentType === 'Cash' ? paymentData.cashReceived : null,
+          giftCardCode: selectedPaymentType === 'Gift Card' ? paymentData.giftCardCode : null,
+        };
+
+        payment = await paymentsApi.create(paymentRequest);
+      }
+
+      showSuccessToast(`Payment processed successfully! Payment ID: ${payment.id}`);
       
       // Refresh order details
       const updatedOrder = await ordersApi.getById(orderDetails.id);
@@ -122,10 +152,12 @@ export default function PaymentDetails({ order }) {
         cashReceived: null,
         giftCardCode: null,
         giftCardBalance: null,
+        paymentIntentId: null,
+        clientSecret: null,
       });
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Failed to process payment';
-      alert(`Error: ${errorMessage}`);
+      const errorMessage = getErrorMessage(err);
+      showErrorToast(errorMessage);
       console.error('Payment processing error:', err);
     } finally {
       setProcessing(false);
@@ -185,14 +217,24 @@ export default function PaymentDetails({ order }) {
       
       {canProcessPayment && (
         <>
-          <CheckoutDetails paymentType={selectedPaymentType} total={total} items={items} orderId={orderDetails.id}/>
+          <StripeProvider>
+            <CardPaymentHandler onPaymentReady={setCardPaymentHandler}>
+              <CheckoutDetails 
+                paymentType={selectedPaymentType} 
+                total={total} 
+                items={items} 
+                orderId={orderDetails.id}
+                onPaymentDataChange={handlePaymentDataChange}
+              />
+            </CardPaymentHandler>
+          </StripeProvider>
           
           <div className="flex flex-row gap-8 rounded-full justify-end w-full">
-            <PaymentButton isImportant={false} onClick={handleCancelPayment}>
+            <PaymentButton isImportant={false} onClick={handleCancelPayment} disabled={processing}>
               CANCEL PAYMENT
             </PaymentButton>
-            <PaymentButton isImportant={true} onClick={handleProcessPayment}>
-              PROCESS PAYMENT
+            <PaymentButton isImportant={true} onClick={handleProcessPayment} disabled={processing}>
+              {processing ? 'PROCESSING...' : 'PROCESS PAYMENT'}
             </PaymentButton>
           </div>
         </>
