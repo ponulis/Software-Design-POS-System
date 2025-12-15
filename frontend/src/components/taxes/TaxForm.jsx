@@ -1,95 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
 
-export default function TaxForm({ tax, onSubmit, onCancel }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    rate: '',
-    isActive: true,
-    effectiveFrom: '',
-    effectiveTo: '',
+export default function TaxForm({ tax, onSubmit, onCancel, submitting }) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm({
+    defaultValues: tax || {
+      name: '',
+      rate: 0,
+      isActive: true,
+      effectiveFrom: new Date().toISOString().split('T')[0],
+      effectiveTo: null,
+    },
   });
-  const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (tax) {
-      setFormData({
+      reset({
         name: tax.name || '',
-        rate: tax.rate?.toString() || '',
-        isActive: tax.isActive ?? true,
-        effectiveFrom: tax.effectiveFrom
+        rate: tax.rate || 0,
+        isActive: tax.isActive !== undefined ? tax.isActive : true,
+        effectiveFrom: tax.effectiveFrom 
           ? new Date(tax.effectiveFrom).toISOString().split('T')[0]
-          : '',
-        effectiveTo: tax.effectiveTo
+          : new Date().toISOString().split('T')[0],
+        effectiveTo: tax.effectiveTo 
           ? new Date(tax.effectiveTo).toISOString().split('T')[0]
-          : '',
+          : null,
       });
     }
-  }, [tax]);
+  }, [tax, reset]);
 
-  const validate = () => {
-    const newErrors = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Tax name is required';
-    }
-
-    const rate = parseFloat(formData.rate);
-    if (isNaN(rate) || rate < 0 || rate > 100) {
-      newErrors.rate = 'Rate must be between 0 and 100';
-    }
-
-    if (formData.effectiveFrom) {
-      const fromDate = new Date(formData.effectiveFrom);
-      if (formData.effectiveTo) {
-        const toDate = new Date(formData.effectiveTo);
-        if (toDate < fromDate) {
-          newErrors.effectiveTo = 'End date must be after start date';
-        }
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validate()) {
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const submitData = {
-        name: formData.name.trim(),
-        rate: parseFloat(formData.rate),
-        isActive: formData.isActive,
-        effectiveFrom: formData.effectiveFrom
-          ? new Date(formData.effectiveFrom).toISOString()
-          : null,
-        effectiveTo: formData.effectiveTo
-          ? new Date(formData.effectiveTo).toISOString()
-          : null,
-      };
-
-      const result = await onSubmit(submitData);
-      if (result?.success) {
-        // Form will be closed by parent
-      } else if (result?.error) {
-        alert(result.error);
-      }
-    } catch (error) {
-      console.error('Error submitting tax form:', error);
-      alert('Failed to save tax rule. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
+  const onFormSubmit = (data) => {
+    onSubmit({
+      ...data,
+      rate: parseFloat(data.rate),
+      effectiveFrom: new Date(data.effectiveFrom).toISOString(),
+      effectiveTo: data.effectiveTo ? new Date(data.effectiveTo).toISOString() : null,
+    });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Tax Name <span className="text-red-500">*</span>
@@ -106,6 +60,13 @@ export default function TaxForm({ tax, onSubmit, onCancel }) {
         />
         {errors.name && (
           <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+          {...register('name', { required: 'Tax name is required' })}
+          type="text"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={submitting}
+        />
+        {errors.name && (
+          <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>
         )}
       </div>
 
@@ -114,6 +75,11 @@ export default function TaxForm({ tax, onSubmit, onCancel }) {
           Tax Rate (%) <span className="text-red-500">*</span>
         </label>
         <input
+          {...register('rate', { 
+            required: 'Tax rate is required',
+            min: { value: 0, message: 'Rate must be 0 or greater' },
+            max: { value: 100, message: 'Rate cannot exceed 100%' }
+          })}
           type="number"
           step="0.01"
           min="0"
@@ -177,6 +143,52 @@ export default function TaxForm({ tax, onSubmit, onCancel }) {
             <p className="mt-1 text-sm text-red-600">{errors.effectiveTo}</p>
           )}
         </div>
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={submitting}
+        />
+        {errors.rate && (
+          <p className="text-red-500 text-xs mt-1">{errors.rate.message}</p>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Effective From <span className="text-red-500">*</span>
+        </label>
+        <input
+          {...register('effectiveFrom', { required: 'Effective from date is required' })}
+          type="date"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={submitting}
+        />
+        {errors.effectiveFrom && (
+          <p className="text-red-500 text-xs mt-1">{errors.effectiveFrom.message}</p>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Effective To (optional)
+        </label>
+        <input
+          {...register('effectiveTo')}
+          type="date"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={submitting}
+        />
+      </div>
+
+      <div className="flex items-center">
+        <input
+          {...register('isActive')}
+          type="checkbox"
+          id="isActive"
+          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          disabled={submitting}
+        />
+        <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
+          Active
+        </label>
       </div>
 
       <div className="flex gap-3 pt-4">
@@ -184,6 +196,8 @@ export default function TaxForm({ tax, onSubmit, onCancel }) {
           type="button"
           onClick={onCancel}
           className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+          disabled={submitting}
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
         >
           Cancel
         </button>

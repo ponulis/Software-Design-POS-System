@@ -59,6 +59,7 @@ export function useTaxes() {
       return { success: false, error: errorMessage };
     }
   }, [fetchTaxes, selectedTax]);
+  }, [fetchTaxes]);
 
   const deleteTax = useCallback(async (taxId) => {
     try {
@@ -90,5 +91,11 @@ export function useTaxes() {
     updateTax,
     deleteTax,
     refreshTaxes,
+    loading,
+    error,
+    createTax,
+    updateTax,
+    deleteTax,
+    refreshTaxes: fetchTaxes,
   };
 }
