@@ -50,12 +50,20 @@ export default function Payments() {
             </h2>
             <h1 className="text-2xl font-bold">Orders</h1>
           </div>
-          <button
-            onClick={refreshOrders}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            Refresh
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowOrderCreation(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+            >
+              + New Order
+            </button>
+            <button
+              onClick={refreshOrders}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -101,7 +109,20 @@ export default function Payments() {
       </div>
 
       <div className="w-1/3 bg-white shadow rounded-xl p-6">
-        <PaymentDetails order={selectedOrder} />
+        {showOrderCreation ? (
+          <OrderCreation
+            onCreateOrder={async (orderData) => {
+              const result = await createOrder(orderData);
+              if (result.success) {
+                setShowOrderCreation(false);
+                selectOrder(result.order);
+              }
+            }}
+            onCancel={() => setShowOrderCreation(false)}
+          />
+        ) : (
+          <PaymentDetails order={selectedOrder} />
+        )}
       </div>
     </div>
   );
