@@ -41,25 +41,25 @@ export default function Payments() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 flex gap-6">
-      <div className="w-2/3 bg-white shadow rounded-xl p-6">
-        <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-gray-100 p-4 md:p-6 flex flex-col lg:flex-row gap-4 lg:gap-6">
+      <div className="w-full lg:w-2/3 bg-white shadow rounded-xl p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
             <h2 className="text-sm font-semibold text-gray-500 uppercase mb-1">
               Orders & Payments
             </h2>
-            <h1 className="text-2xl font-bold">Orders</h1>
+            <h1 className="text-xl md:text-2xl font-bold">Orders</h1>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <button
               onClick={() => setShowOrderCreation(true)}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm"
             >
               + New Order
             </button>
             <button
               onClick={refreshOrders}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
             >
               Refresh
             </button>
@@ -73,11 +73,11 @@ export default function Payments() {
         )}
 
         {/* Filter controls */}
-        <div className="mb-4 flex gap-4">
+        <div className="mb-4 flex flex-col sm:flex-row gap-2 sm:gap-4">
           <select
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
           >
             <option value="">All Statuses</option>
             <option value="Draft">Draft</option>
@@ -89,14 +89,14 @@ export default function Payments() {
             type="date"
             value={filters.startDate}
             onChange={(e) => handleFilterChange('startDate', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
             placeholder="Start Date"
           />
           <input
             type="date"
             value={filters.endDate}
             onChange={(e) => handleFilterChange('endDate', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
             placeholder="End Date"
           />
         </div>
@@ -108,7 +108,7 @@ export default function Payments() {
         />
       </div>
 
-      <div className="w-1/3 bg-white shadow rounded-xl p-6">
+      <div className="w-full lg:w-1/3 bg-white shadow rounded-xl p-4 md:p-6">
         {showOrderCreation ? (
           <OrderCreation
             onCreateOrder={async (orderData) => {
