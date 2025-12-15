@@ -15,21 +15,35 @@ export default function Login() {
     setError('');
     setLoading(true);
 
+    // Validate input
     if (!phone || !password) {
       setError('Please enter both phone and password');
       setLoading(false);
       return;
     }
 
-    const result = await login(phone, password);
-
-    if (result.success) {
-      navigate('/');
-    } else {
-      setError(result.error || 'Login failed. Please try again.');
+    // Basic phone format validation (optional)
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(phone.replace(/[\s-()]/g, ''))) {
+      setError('Please enter a valid phone number');
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    try {
+      const result = await login(phone, password);
+
+      if (result.success) {
+        navigate('/');
+      } else {
+        setError(result.error || 'Login failed. Please try again.');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

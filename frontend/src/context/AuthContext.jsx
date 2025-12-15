@@ -39,29 +39,47 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authApi.login(phone, password);
       
+      if (!response || !response.token) {
+        return {
+          success: false,
+          error: 'Invalid response from server. Please try again.',
+        };
+      }
+
       // Store token and user data
       localStorage.setItem('authToken', response.token);
-      localStorage.setItem('user', JSON.stringify({
+      const userData = {
         userId: response.userId,
         businessId: response.businessId,
-        name: response.name,
-        role: response.role,
-      }));
+        name: response.name || 'User',
+        role: response.role || 'Employee',
+      };
+      localStorage.setItem('user', JSON.stringify(userData));
 
-      setUser({
-        userId: response.userId,
-        businessId: response.businessId,
-        name: response.name,
-        role: response.role,
-      });
+      setUser(userData);
       setIsAuthenticated(true);
 
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Handle network errors
+      if (error.isNetworkError) {
+        return {
+          success: false,
+          error: 'Network error. Please check your connection and try again.',
+        };
+      }
+
+      // Handle API errors
+      const errorMessage = error.response?.data?.message 
+        || error.response?.data?.error
+        || error.message
+        || 'Login failed. Please check your credentials.';
+
       return {
         success: false,
-        error: error.response?.data?.message || 'Login failed. Please check your credentials.',
+        error: errorMessage,
       };
     }
   };

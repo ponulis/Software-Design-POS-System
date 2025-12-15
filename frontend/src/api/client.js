@@ -9,6 +9,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 seconds timeout
 });
 
 // Request interceptor to add auth token
@@ -28,13 +29,35 @@ apiClient.interceptors.request.use(
 // Response interceptor to handle errors
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Handle 401 Unauthorized - clear token and redirect to login
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      // Only redirect if not already on login page
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
     }
+
+    // Handle network errors
+    if (!error.response) {
+      const networkError = new Error('Network error. Please check your connection.');
+      networkError.isNetworkError = true;
+      return Promise.reject(networkError);
+    }
+
+    // Handle other errors with retry logic for 5xx errors
+    if (error.response.status >= 500 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      // Wait 1 second before retry
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return apiClient(originalRequest);
+    }
+
     return Promise.reject(error);
   }
 );
