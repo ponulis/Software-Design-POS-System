@@ -1,0 +1,44 @@
+import apiClient from './client';
+
+export const paymentsApi = {
+  /**
+   * Get all payments with optional filtering and pagination
+   * @param {Object} params - Query parameters
+   * @param {string} params.method - Filter by payment method
+   * @param {string} params.startDate - Filter by start date (ISO string)
+   * @param {string} params.endDate - Filter by end date (ISO string)
+   * @param {number} params.page - Page number (default: 1)
+   * @param {number} params.pageSize - Items per page (default: 50)
+   */
+  getAll: async (params = {}) => {
+    const response = await apiClient.get('/payments', { params });
+    return response.data;
+  },
+
+  /**
+   * Get payment by ID
+   * @param {number} paymentId - Payment ID
+   */
+  getById: async (paymentId) => {
+    const response = await apiClient.get(`/payments/${paymentId}`);
+    return response.data;
+  },
+
+  /**
+   * Create a new payment
+   * @param {Object} paymentData - Payment data
+   */
+  create: async (paymentData) => {
+    const response = await apiClient.post('/payments', paymentData);
+    return response.data;
+  },
+
+  /**
+   * Get payment history for an order
+   * @param {number} orderId - Order ID
+   */
+  getHistory: async (orderId) => {
+    const response = await apiClient.get(`/payments/order/${orderId}/history`);
+    return response.data;
+  },
+};

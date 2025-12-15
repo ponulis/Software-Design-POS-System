@@ -56,14 +56,22 @@ export default function Navbar() {
           </ul>
           <div className="flex items-center gap-4">
             {user && (
-              <div className="text-white/90 text-sm">
-                <span className="font-medium">{user.name}</span>
-                <span className="ml-2 text-white/70">({user.role})</span>
+              <div className="text-white/90 text-sm flex items-center gap-2">
+                <div className="flex flex-col items-end">
+                  <span className="font-medium">{user.name || 'User'}</span>
+                  <span className="text-xs text-white/70 capitalize">{user.role || 'Employee'}</span>
+                </div>
+                {user.businessId && (
+                  <div className="text-xs text-white/60">
+                    Business #{user.businessId}
+                  </div>
+                )}
               </div>
             )}
             <button
               onClick={handleLogout}
               className="px-4 py-2 rounded-lg transition-colors font-medium text-white/80 hover:text-white hover:bg-white/10 border border-white/20"
+              title="Logout"
             >
               Logout
             </button>
