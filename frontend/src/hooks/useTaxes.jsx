@@ -3,7 +3,6 @@ import { taxesApi } from '../api/taxes';
 
 export function useTaxes() {
   const [taxes, setTaxes] = useState([]);
-  const [selectedTax, setSelectedTax] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -27,10 +26,6 @@ export function useTaxes() {
     fetchTaxes();
   }, [fetchTaxes]);
 
-  const selectTax = useCallback((tax) => {
-    setSelectedTax(tax);
-  }, []);
-
   const createTax = useCallback(async (taxData) => {
     try {
       setError(null);
@@ -49,46 +44,34 @@ export function useTaxes() {
       setError(null);
       const updatedTax = await taxesApi.update(taxId, taxData);
       await fetchTaxes();
-      if (selectedTax?.id === taxId) {
-        setSelectedTax(updatedTax);
-      }
       return { success: true, tax: updatedTax };
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to update tax';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, [fetchTaxes, selectedTax]);
+  }, [fetchTaxes]);
 
   const deleteTax = useCallback(async (taxId) => {
     try {
       setError(null);
       await taxesApi.delete(taxId);
       await fetchTaxes();
-      if (selectedTax?.id === taxId) {
-        setSelectedTax(null);
-      }
       return { success: true };
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to delete tax';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }
-  }, [fetchTaxes, selectedTax]);
-
-  const refreshTaxes = useCallback(() => {
-    fetchTaxes();
   }, [fetchTaxes]);
 
   return {
     taxes,
-    selectedTax,
     loading,
     error,
-    selectTax,
     createTax,
     updateTax,
     deleteTax,
-    refreshTaxes,
+    refreshTaxes: fetchTaxes,
   };
 }
