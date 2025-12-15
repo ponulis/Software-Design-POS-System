@@ -49,6 +49,17 @@ export default function TaxForm({ tax, onSubmit, onCancel, submitting }) {
           Tax Name <span className="text-red-500">*</span>
         </label>
         <input
+          type="text"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            errors.name ? 'border-red-500' : 'border-gray-300'
+          }`}
+          placeholder="e.g., VAT, Sales Tax"
+          maxLength={200}
+        />
+        {errors.name && (
+          <p className="mt-1 text-sm text-red-600">{errors.name}</p>
           {...register('name', { required: 'Tax name is required' })}
           type="text"
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -73,6 +84,65 @@ export default function TaxForm({ tax, onSubmit, onCancel, submitting }) {
           step="0.01"
           min="0"
           max="100"
+          value={formData.rate}
+          onChange={(e) => setFormData({ ...formData, rate: e.target.value })}
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            errors.rate ? 'border-red-500' : 'border-gray-300'
+          }`}
+          placeholder="e.g., 21.0"
+        />
+        {errors.rate && (
+          <p className="mt-1 text-sm text-red-600">{errors.rate}</p>
+        )}
+        <p className="mt-1 text-xs text-gray-500">
+          Enter the tax rate as a percentage (e.g., 21 for 21%)
+        </p>
+      </div>
+
+      <div>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={formData.isActive}
+            onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <span className="text-sm font-medium text-gray-700">Active</span>
+        </label>
+        <p className="mt-1 text-xs text-gray-500">
+          Only active taxes will be applied to orders
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Effective From
+          </label>
+          <input
+            type="date"
+            value={formData.effectiveFrom}
+            onChange={(e) => setFormData({ ...formData, effectiveFrom: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Effective To (Optional)
+          </label>
+          <input
+            type="date"
+            value={formData.effectiveTo}
+            onChange={(e) => setFormData({ ...formData, effectiveTo: e.target.value })}
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              errors.effectiveTo ? 'border-red-500' : 'border-gray-300'
+            }`}
+          />
+          {errors.effectiveTo && (
+            <p className="mt-1 text-sm text-red-600">{errors.effectiveTo}</p>
+          )}
+        </div>
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={submitting}
         />
@@ -125,6 +195,7 @@ export default function TaxForm({ tax, onSubmit, onCancel, submitting }) {
         <button
           type="button"
           onClick={onCancel}
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
           disabled={submitting}
           className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
         >

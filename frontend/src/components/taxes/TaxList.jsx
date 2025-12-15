@@ -1,5 +1,6 @@
 import React from 'react';
 
+export default function TaxList({ taxes, selectedTax, onSelect, onEdit, onDelete }) {
 export default function TaxList({ taxes = [], onEdit, onDelete }) {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -34,6 +35,12 @@ export default function TaxList({ taxes = [], onEdit, onDelete }) {
       {taxes.map((tax) => (
         <div
           key={tax.id}
+          onClick={() => onSelect(tax)}
+          className={`p-4 rounded-lg border cursor-pointer transition hover:bg-gray-50 ${
+            selectedTax?.id === tax.id
+              ? 'ring-2 ring-blue-400 bg-blue-50 border-blue-200'
+              : 'bg-white border-gray-200'
+          }`}
           className="p-4 rounded-lg border bg-white border-gray-200 hover:bg-gray-50 transition"
         >
           <div className="flex justify-between items-start">
