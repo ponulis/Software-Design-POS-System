@@ -90,22 +90,61 @@ export default function AddAppointmentModal({
                     ))}
                   </select>
                 </div>
-              ) : key === "duration" ? (
+              ) : key === "service" ? (
                 <select
                   className="w-full border p-2 rounded text-sm"
+                  value={newApt[key] || ""}
+                  onChange={(e) => {
+                    const serviceId = e.target.value;
+                    const selectedService = services.find(s => s.id === parseInt(serviceId));
+                    setNewApt({ 
+                      ...newApt, 
+                      [key]: selectedService?.name || "",
+                      serviceId: serviceId || null,
+                      duration: selectedService?.durationMinutes?.toString() || newApt.duration
+                    });
+                  }}
+                  disabled={servicesLoading}
+                >
+                  <option value="">Select service</option>
+                  {services.map((service) => (
+                    <option key={service.id} value={service.id}>
+                      {service.name} ({service.durationMinutes} min)
+                    </option>
+                  ))}
+                </select>
+              ) : key === "staff" ? (
+                <select
+                  className="w-full border p-2 rounded text-sm"
+                  value={newApt[key] || ""}
+                  onChange={(e) => {
+                    const employeeId = e.target.value;
+                    const selectedEmployee = employees.find(e => e.id === parseInt(employeeId));
+                    setNewApt({ 
+                      ...newApt, 
+                      [key]: selectedEmployee?.name || "",
+                      employeeId: employeeId || null
+                    });
+                  }}
+                  disabled={employeesLoading}
+                >
+                  <option value="">Select employee</option>
+                  {employees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </option>
+                  ))}
+                </select>
+              ) : key === "duration" ? (
+                <input
+                  type="number"
+                  className="w-full border p-2 rounded text-sm"
+                  placeholder="Duration (minutes)"
                   value={newApt[key] || ""}
                   onChange={(e) =>
                     setNewApt({ ...newApt, [key]: e.target.value })
                   }
-                >
-                  <option value="">Select duration</option>
-                  <option value="15">15 minutes</option>
-                  <option value="30">30 minutes</option>
-                  <option value="45">45 minutes</option>
-                  <option value="60">60 minutes</option>
-                  <option value="90">90 minutes</option>
-                  <option value="120">120 minutes</option>
-                </select>
+                />
               ) : key === "prepaid" ? (
                 <select
                   className="w-full border p-2 rounded text-sm"
@@ -150,11 +189,12 @@ export default function AddAppointmentModal({
             Cancel
           </button>
           <button
-            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-            onClick={onAdd}
+            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleSubmit}
             type="button"
+            disabled={submitting}
           >
-            Add
+            {submitting ? 'Adding...' : 'Add'}
           </button>
         </div>
       </div>

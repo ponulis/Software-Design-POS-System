@@ -24,16 +24,27 @@ export default function RescheduleAppointmentModal({
 
   if (!isOpen || !appointment) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!date || !time) {
+      alert('Please select both date and time');
+      return;
+    }
+    
     const end = calculateEndTime(time, duration);
-    onSubmit({
+    const result = await onSubmit({
       ...appointment,
       sortDate: date,
       sortTime: time,
       duration,
       end, 
     });
+    
+    if (result?.success) {
+      onClose();
+    } else if (result?.error) {
+      alert(result.error);
+    }
   };
 
   const hour = (time || "").split(":")[0];
