@@ -9,6 +9,8 @@ export default function Reservations() {
   const {
     appointments,
     selected,
+    loading,
+    error,
     selectAppointment,
     addAppointment,
     cancelAppointment,
@@ -22,10 +24,14 @@ export default function Reservations() {
     date: "",
     time: "",
     customer: "",
+    phone: "",
     staff: "",
     service: "",
+    serviceId: null,
+    employeeId: null,
     duration: "",
     prepaid: "No",
+    notes: "",
   });
 
   const hours = Array.from({ length: 24 }, (_, i) =>
@@ -45,21 +51,33 @@ export default function Reservations() {
     ).padStart(2, "0")}`;
   };
 
-  const handleAdd = () => {
-    addAppointment(newApt);
-    setShowAddModal(false);
-    setNewApt({
-      date: "",
-      time: "",
-      customer: "",
-      staff: "",
-      service: "",
-      duration: "",
-      prepaid: "No",
-    });
+  const handleAdd = async () => {
+    const result = await addAppointment(newApt);
+    if (result.success) {
+      setShowAddModal(false);
+      setNewApt({
+        date: "",
+        time: "",
+        customer: "",
+        phone: "",
+        staff: "",
+        service: "",
+        serviceId: null,
+        employeeId: null,
+        duration: "",
+        prepaid: "No",
+        notes: "",
+      });
+    } else {
+      alert(result.error || 'Failed to create appointment');
+    }
   };
 
   const handleReschedule = (apt) => {
+    if (apt.status === 'Completed' || apt.status === 'Cancelled') {
+      alert('Cannot reschedule a completed or cancelled appointment');
+      return;
+    }
     selectAppointment(apt);
     setShowResModal(true);
   };
@@ -69,6 +87,17 @@ export default function Reservations() {
     setShowResModal(false);
   };
 
+  if (loading && appointments.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-4"></div>
+          <p className="text-gray-600">Loading appointments...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 p-6 flex gap-6">
       <div className="w-2/3 bg-white shadow rounded-xl p-6">
@@ -76,6 +105,12 @@ export default function Reservations() {
           Schedule
         </h2>
         <h1 className="text-2xl font-bold mb-6">Daily Appointments</h1>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
 
         <AppointmentsList
           appointments={appointments}
