@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import PaymentButton from "./PaymentButton";
 import OrderDetails from "./OrderDetails";
 import CheckoutDetails from "./CheckoutDetails";
+import ReceiptModal from "../receipts/ReceiptModal";
 import { ordersApi } from "../../api/orders";
 
 export default function PaymentDetails({ order }) {
@@ -203,11 +204,25 @@ export default function PaymentDetails({ order }) {
             ? 'bg-green-50 text-green-800 border border-green-200' 
             : 'bg-red-50 text-red-800 border border-red-200'
         }`}>
-          <p className="font-semibold">
+          <p className="font-semibold mb-3">
             Order is {orderDetails.status}
           </p>
+          {orderDetails.status === 'Paid' && (
+            <button
+              onClick={() => setShowReceipt(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+            >
+              View Receipt
+            </button>
+          )}
         </div>
       )}
+
+      <ReceiptModal
+        isOpen={showReceipt}
+        orderId={orderDetails?.id}
+        onClose={() => setShowReceipt(false)}
+      />
     </div>
   );
 }
