@@ -60,9 +60,75 @@ export default function PaymentDetails({ order }) {
     }
   };
 
-  const handleProcessPayment = () => {
-    // TODO: Implement payment processing logic
-    alert('Payment is being processed.'); 
+  const [paymentData, setPaymentData] = useState({
+    cashReceived: null,
+    giftCardCode: null,
+    giftCardBalance: null,
+  });
+  const [processing, setProcessing] = useState(false);
+
+  const handlePaymentDataChange = (data) => {
+    setPaymentData(data);
+  };
+
+  const handleProcessPayment = async () => {
+    if (!orderDetails) return;
+
+    const numericTotal = parseFloat(orderDetails.total || 0);
+    
+    // Validate payment data based on payment type
+    if (selectedPaymentType === 'Cash') {
+      if (!paymentData.cashReceived || paymentData.cashReceived < numericTotal) {
+        alert('Please enter sufficient cash amount');
+        return;
+      }
+    } else if (selectedPaymentType === 'Gift Card') {
+      if (!paymentData.giftCardCode || !paymentData.giftCardBalance) {
+        alert('Please validate a gift card');
+        return;
+      }
+      if (paymentData.giftCardBalance < numericTotal) {
+        alert('Insufficient gift card balance');
+        return;
+      }
+    }
+
+    if (!window.confirm(`Process ${selectedPaymentType} payment of ${numericTotal.toFixed(2)}€?`)) {
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const paymentRequest = {
+        orderId: orderDetails.id,
+        amount: numericTotal,
+        method: selectedPaymentType === 'Gift Card' ? 'GiftCard' : selectedPaymentType,
+        cashReceived: selectedPaymentType === 'Cash' ? paymentData.cashReceived : null,
+        giftCardCode: selectedPaymentType === 'Gift Card' ? paymentData.giftCardCode : null,
+      };
+
+      const { paymentsApi } = await import('../../api/payments');
+      const payment = await paymentsApi.create(paymentRequest);
+
+      alert(`Payment processed successfully! Payment ID: ${payment.id}`);
+      
+      // Refresh order details
+      const updatedOrder = await ordersApi.getById(orderDetails.id);
+      setOrderDetails(updatedOrder);
+      
+      // Reset payment data
+      setPaymentData({
+        cashReceived: null,
+        giftCardCode: null,
+        giftCardBalance: null,
+      });
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || 'Failed to process payment';
+      alert(`Error: ${errorMessage}`);
+      console.error('Payment processing error:', err);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   // Convert order items to format expected by OrderDetails component
