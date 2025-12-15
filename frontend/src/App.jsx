@@ -8,84 +8,92 @@ import Payments from "./pages/Payments";
 import Reservations from "./pages/Reservations";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
+import ToastContainer from "./components/ToastContainer";
 import { AuthProvider } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/*"
-          element={
-            <>
-              <Navbar />
-              <div className="p-6">
-                <Routes>
-                  <Route
-                    path="/"
-                    element={
-                      <ProtectedRoute>
-                        <Home />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/settings"
-                    element={
-                      <ProtectedRoute>
-                        <Settings />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/catalog-products"
-                    element={
-                      <ProtectedRoute>
-                        <CatalogProducts />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/taxes-and-service-charges"
-                    element={
-                      <ProtectedRoute>
-                        <TaxesAndServiceCharges />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/users-and-roles"
-                    element={
-                      <ProtectedRoute requiredRole="Admin">
-                        <UsersAndRoles />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/payments"
-                    element={
-                      <ProtectedRoute>
-                        <Payments />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reservations"
-                    element={
-                      <ProtectedRoute>
-                        <Reservations />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </div>
-            </>
-          }
-        />
-      </Routes>
-    </AuthProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AuthProvider>
+          <ToastContainer />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/*"
+              element={
+                <>
+                  <Navbar />
+                  <div className="p-6">
+                    <Routes>
+                      <Route
+                        path="/"
+                        element={
+                          <ProtectedRoute>
+                            <Home />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settings"
+                        element={
+                          <ProtectedRoute>
+                            <Settings />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/catalog-products"
+                        element={
+                          <ProtectedRoute>
+                            <CatalogProducts />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/taxes-and-service-charges"
+                        element={
+                          <ProtectedRoute>
+                            <TaxesAndServiceCharges />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/users-and-roles"
+                        element={
+                          <ProtectedRoute requiredRole="Admin">
+                            <UsersAndRoles />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/payments"
+                        element={
+                          <ProtectedRoute>
+                            <Payments />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reservations"
+                        element={
+                          <ProtectedRoute>
+                            <Reservations />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                  </div>
+                </>
+              }
+            />
+          </Routes>
+        </AuthProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }

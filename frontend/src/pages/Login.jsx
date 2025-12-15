@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function Login() {
   const [phone, setPhone] = useState('');
@@ -8,6 +9,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { error: showErrorToast, success: showSuccessToast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -34,12 +36,17 @@ export default function Login() {
       const result = await login(phone, password);
 
       if (result.success) {
+        showSuccessToast('Login successful!');
         navigate('/');
       } else {
-        setError(result.error || 'Login failed. Please try again.');
+        const errorMsg = result.error || 'Login failed. Please try again.';
+        setError(errorMsg);
+        showErrorToast(errorMsg);
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      const errorMsg = 'An unexpected error occurred. Please try again.';
+      setError(errorMsg);
+      showErrorToast(errorMsg);
       console.error('Login error:', err);
     } finally {
       setLoading(false);
