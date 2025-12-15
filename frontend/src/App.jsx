@@ -5,6 +5,7 @@ import CatalogProducts from "./pages/CatalogProducts";
 import TaxesAndServiceCharges from "./pages/TaxesAndServiceCharges";
 import UsersAndRoles from "./pages/UsersAndRoles";
 import Payments from "./pages/Payments";
+import PaymentHistory from "./pages/PaymentHistory";
 import Reservations from "./pages/Reservations";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -69,22 +70,30 @@ export default function App() {
                           </ProtectedRoute>
                         }
                       />
-                      <Route
-                        path="/payments"
-                        element={
-                          <ProtectedRoute>
-                            <Payments />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/reservations"
-                        element={
-                          <ProtectedRoute>
-                            <Reservations />
-                          </ProtectedRoute>
-                        }
-                      />
+                  <Route
+                    path="/payments"
+                    element={
+                      <ProtectedRoute>
+                        <Payments />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/payment-history"
+                    element={
+                      <ProtectedRoute>
+                        <PaymentHistory />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/reservations"
+                    element={
+                      <ProtectedRoute>
+                        <Reservations />
+                      </ProtectedRoute>
+                    }
+                  />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </div>

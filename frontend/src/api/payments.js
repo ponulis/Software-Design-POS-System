@@ -34,11 +34,14 @@ export const paymentsApi = {
   },
 
   /**
-   * Get payment history for an order
-   * @param {number} orderId - Order ID
+   * Get payment history with optional filtering
+   * @param {Object} params - Query parameters
+   * @param {number} params.orderId - Filter by order ID
+   * @param {string} params.startDate - Filter by start date (ISO string)
+   * @param {string} params.endDate - Filter by end date (ISO string)
    */
-  getHistory: async (orderId) => {
-    const response = await apiClient.get(`/payments/order/${orderId}/history`);
+  getHistory: async (params = {}) => {
+    const response = await apiClient.get('/payments/history', { params });
     return response.data;
   },
 };
