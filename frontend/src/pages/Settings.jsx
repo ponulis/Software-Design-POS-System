@@ -4,6 +4,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { businessApi } from "../api/business";
+import { useToast } from "../context/ToastContext";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 const businessSchema = z.object({
   name: z.string().min(1, "Business name is required").max(200, "Name cannot exceed 200 characters"),
@@ -68,27 +70,24 @@ export default function Settings() {
       setSuccessMessage("");
       
       await businessApi.update(data);
-      setSuccessMessage("Business settings updated successfully!");
+      const successMsg = "Business settings updated successfully!";
+      setSuccessMessage(successMsg);
+      showSuccessToast(successMsg);
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error("Error updating business:", err);
-      setErrorMessage(err.response?.data?.message || "Failed to update business settings");
+      const errorMsg = err.response?.data?.message || "Failed to update business settings";
+      setErrorMessage(errorMsg);
+      showErrorToast(errorMsg);
     } finally {
       setSubmitting(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Loading business settings...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Loading business settings..." />;
   }
 
   return (
