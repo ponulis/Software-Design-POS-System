@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useServices } from "../../hooks/useServices";
+import { useEmployees } from "../../hooks/useEmployees";
 
 export default function AddAppointmentModal({
   isOpen,
@@ -10,7 +12,28 @@ export default function AddAppointmentModal({
   minutes = [],
   calculateEndTime = () => "",
 }) {
-  if (!isOpen) return null; 
+  const { services, loading: servicesLoading } = useServices();
+  const { employees, loading: employeesLoading } = useEmployees();
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async () => {
+    if (!newApt.date || !newApt.time || !newApt.customer) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await onAdd(newApt);
+    setSubmitting(false);
+    
+    if (result?.success) {
+      onClose();
+    } else if (result?.error) {
+      alert(result.error);
+    }
+  }; 
 
   return (
     <div className="fixed inset-0 flex justify-center items-center p-4 bg-black/30 z-50">
