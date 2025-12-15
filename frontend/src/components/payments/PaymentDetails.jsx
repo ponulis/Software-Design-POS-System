@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { loadStripe } from "@stripe/stripe-js";
 import PaymentButton from "./PaymentButton";
 import OrderDetails from "./OrderDetails";
 import CheckoutDetails from "./CheckoutDetails";
 import ReceiptModal from "../receipts/ReceiptModal";
 import StripeProvider from "../stripe/StripeProvider";
+import CardPaymentHandler from "./CardPaymentHandler";
 import { ordersApi } from "../../api/orders";
-import { stripeApi } from "../../api/stripe";
+import { paymentsApi } from "../../api/payments";
 import { useToast } from "../../context/ToastContext";
 import { getErrorMessage } from "../../utils/errorHandler";
-
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
 
 export default function PaymentDetails({ order }) {
   const [selectedPaymentType, setSelectedPaymentType] = useState('Card');
@@ -220,13 +218,15 @@ export default function PaymentDetails({ order }) {
       {canProcessPayment && (
         <>
           <StripeProvider>
-            <CheckoutDetails 
-              paymentType={selectedPaymentType} 
-              total={total} 
-              items={items} 
-              orderId={orderDetails.id}
-              onPaymentDataChange={handlePaymentDataChange}
-            />
+            <CardPaymentHandler onPaymentReady={setCardPaymentHandler}>
+              <CheckoutDetails 
+                paymentType={selectedPaymentType} 
+                total={total} 
+                items={items} 
+                orderId={orderDetails.id}
+                onPaymentDataChange={handlePaymentDataChange}
+              />
+            </CardPaymentHandler>
           </StripeProvider>
           
           <div className="flex flex-row gap-8 rounded-full justify-end w-full">

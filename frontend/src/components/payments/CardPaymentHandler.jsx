@@ -1,3 +1,4 @@
+import React from "react";
 import { useStripePayment } from "./useStripePayment";
 
 export default function CardPaymentHandler({ children, onPaymentReady }) {

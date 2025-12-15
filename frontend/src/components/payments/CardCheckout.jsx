@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useStripe, useElements, CardElement } from "@stripe/react-stripe-js";
 import { stripeApi } from "../../api/stripe";
+import { useToast } from "../../context/ToastContext";
 import SplitPayment from "./SplitPayment";
 
 export default function CardCheckout({ total, items, orderId, onPaymentDataChange }) {
