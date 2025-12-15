@@ -2,12 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { appointmentsApi } from '../../api/appointments';
 
-export default function RecentAppointments({ upcomingCount = 0 }) {
+export default function RecentAppointments({ appointments: providedAppointments, upcomingCount = 0 }) {
   const navigate = useNavigate();
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [appointments, setAppointments] = useState(providedAppointments || []);
+  const [loading, setLoading] = useState(!providedAppointments);
 
   useEffect(() => {
+    // If appointments are provided, use them directly
+    if (providedAppointments) {
+      setAppointments(providedAppointments);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise, fetch appointments if upcomingCount > 0
     const fetchAppointments = async () => {
       try {
         setLoading(true);
@@ -27,8 +35,10 @@ export default function RecentAppointments({ upcomingCount = 0 }) {
 
     if (upcomingCount > 0) {
       fetchAppointments();
+    } else {
+      setLoading(false);
     }
-  }, [upcomingCount]);
+  }, [providedAppointments, upcomingCount]);
 
   const formatDateTime = (dateString) => {
     if (!dateString) return 'N/A';
