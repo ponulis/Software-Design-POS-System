@@ -6,6 +6,7 @@ import TaxesAndServiceCharges from "./pages/TaxesAndServiceCharges";
 import UsersAndRoles from "./pages/UsersAndRoles";
 import Payments from "./pages/Payments";
 import PaymentHistory from "./pages/PaymentHistory";
+import OrderHistory from "./pages/OrderHistory";
 import Reservations from "./pages/Reservations";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -83,6 +84,14 @@ export default function App() {
                     element={
                       <ProtectedRoute>
                         <PaymentHistory />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/order-history"
+                    element={
+                      <ProtectedRoute>
+                        <OrderHistory />
                       </ProtectedRoute>
                     }
                   />

@@ -54,6 +54,11 @@ export default function Navbar() {
               </NavLink>
             </li>
             <li>
+              <NavLink to="/order-history" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Order History
+              </NavLink>
+            </li>
+            <li>
               <NavLink to="/reservations" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
                 Reservations
               </NavLink>
