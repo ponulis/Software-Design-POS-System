@@ -164,6 +164,40 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
         return Object.values(guestTotals).reduce((sum, guestTotal) => sum + (guestTotal.total || 0), 0);
     };
 
+    const handleProcessPayment = async (guestId) => {
+        const guest = guests.find(g => g.id === guestId);
+        if (!guest) return;
+
+        const guestTotal = guestTotals[guestId];
+        if (!guestTotal || guestTotal.total <= 0) {
+            showErrorToast("Guest total must be greater than zero");
+            return;
+        }
+
+        if (!guest.paymentMethod) {
+            showErrorToast("Please select a payment method for this guest");
+            return;
+        }
+
+        setProcessingPayments(prev => ({ ...prev, [guestId]: true }));
+
+        try {
+            // For split payments, we need to process all payments at once
+            // So we'll collect all guest payments and send them together
+            // But for now, let's process individually and then combine
+            
+            // This is a simplified version - in a real implementation,
+            // you'd want to collect all payments first, then send them together
+            showErrorToast("Please use 'Process All Payments' to complete split payment");
+            setProcessingPayments(prev => ({ ...prev, [guestId]: false }));
+        } catch (err) {
+            const errorMessage = getErrorMessage(err);
+            showErrorToast(errorMessage);
+            setPaymentStatuses(prev => ({ ...prev, [guestId]: 'failed' }));
+            setProcessingPayments(prev => ({ ...prev, [guestId]: false }));
+        }
+    };
+
     const handleProcessAllPayments = async () => {
         // Validate all guests have payment methods
         const guestsWithoutMethod = guests.filter(g => !g.paymentMethod);
@@ -199,9 +233,21 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
         });
 
         try {
+            // We need Stripe to confirm card payments
+            // Import Stripe at the top level - we'll use it from window if available
+            const loadStripe = async () => {
+                if (typeof window !== 'undefined' && window.Stripe) {
+                    return window.Stripe;
+                }
+                // Dynamic import if Stripe is not on window
+                const stripeModule = await import('@stripe/stripe-js');
+                return stripeModule.loadStripe;
+            };
+
             // Prepare split payment request
             const splitPayments = [];
 
+            // First, confirm all card payments with Stripe (without creating payment records)
             for (const guest of guests) {
                 const guestTotal = guestTotals[guest.id];
                 const paymentData = guest.paymentData || {};
