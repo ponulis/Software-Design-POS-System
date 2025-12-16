@@ -10,6 +10,30 @@ import { useToast } from "../../context/ToastContext";
 import { getErrorMessage } from "../../utils/errorHandler";
 
 export default function SplitPayment({ order, items, subtotal, taxes, discounts, total, onPaymentComplete }) {
+    // Validate required props
+    if (!order || !order.id) {
+        return (
+            <div className="flex items-center justify-center h-full text-gray-400 min-h-[400px]">
+                <div className="text-center">
+                    <p className="text-lg mb-2">Invalid order</p>
+                    <p className="text-sm">Order information is missing</p>
+                </div>
+            </div>
+        );
+    }
+    
+    // Normalize numeric values to ensure they're numbers
+    const normalizedSubtotal = parseFloat(subtotal) || 0;
+    const normalizedTaxes = parseFloat(taxes) || 0;
+    const normalizedDiscounts = parseFloat(discounts) || 0;
+    const normalizedTotal = parseFloat(total) || 0;
+    
+    // Helper function to safely format numbers
+    const formatCurrency = (value) => {
+        const num = parseFloat(value);
+        return isNaN(num) ? '0.00' : num.toFixed(2);
+    };
+    
     const [numberOfGuests, setNumberOfGuests] = useState(1);
     const [guests, setGuests] = useState([{ id: 1, paymentMethod: null, paymentData: {} }]);
     const [itemAssignments, setItemAssignments] = useState({}); // { itemId: [guestIds] }
@@ -37,8 +61,8 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
         }
 
         const totals = {};
-        const taxRate = subtotal > 0 ? taxes / subtotal : 0;
-        const discountRate = subtotal > 0 ? discounts / subtotal : 0;
+        const taxRate = normalizedSubtotal > 0 ? normalizedTaxes / normalizedSubtotal : 0;
+        const discountRate = normalizedSubtotal > 0 ? normalizedDiscounts / normalizedSubtotal : 0;
 
         guests.forEach(guest => {
             let guestSubtotal = 0;
@@ -70,7 +94,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
         });
 
         setGuestTotals(totals);
-    }, [items, itemAssignments, guests, subtotal, taxes, discounts]);
+    }, [items, itemAssignments, guests, normalizedSubtotal, normalizedTaxes, normalizedDiscounts]);
 
     const handleAddPerson = () => {
         const newGuestId = Date.now();
@@ -220,9 +244,9 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
 
         // Validate totals match
         const assignedTotal = calculateAssignedTotal();
-        const totalDifference = Math.abs(assignedTotal - total);
+        const totalDifference = Math.abs(assignedTotal - normalizedTotal);
         if (totalDifference > 0.01) {
-            showErrorToast(`Assigned total (${assignedTotal.toFixed(2)}€) does not match order total (${total.toFixed(2)}€)`);
+            showErrorToast(`Assigned total (${formatCurrency(assignedTotal)}€) does not match order total (${formatCurrency(normalizedTotal)}€)`);
             return;
         }
 
@@ -274,7 +298,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
 
             // Create split payments (backend will create payment records for all)
             const response = await paymentsApi.createSplitPayments({
-                orderId: order.id,
+                orderId: order?.id,
                 payments: splitPayments
             });
 
@@ -443,7 +467,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
 
                         <div className="bg-white p-4 rounded-md">
                             <div className="mb-3">
-                                <div className="text-xs text-gray-600 mb-2">Total: {guestTotal.total.toFixed(2)}€</div>
+                                <div className="text-xs text-gray-600 mb-2">Total: {formatCurrency(guestTotal.total)}€</div>
                                 <div className="flex gap-2">
                                     <PaymentButton
                                         onClick={() => handlePaymentMethodChange(guest.id, 'Cash')}
@@ -486,7 +510,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                                                 const itemId = item.id || itemIdx;
                                                 return (itemAssignments[itemId] || []).includes(guest.id);
                                             })}
-                                            orderId={order.id}
+                                            orderId={order?.id}
                                             isSplitPaymentMode={true}
                                             onPaymentDataChange={(data) => handlePaymentDataChange(guest.id, data)}
                                         />
@@ -532,7 +556,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                                             </div>
                                         </td>
                                         <td className="text-center">
-                                            <p>{guestTotal.total.toFixed(2)}€</p>
+                                            <p>{formatCurrency(guestTotal.total)}€</p>
                                         </td>
                                     </tr>
                                 );
@@ -549,7 +573,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                                 Assigned total
                             </td>
                             <td className="text-center">
-                                {assignedTotal.toFixed(2)}€
+                                {formatCurrency(assignedTotal)}€
                             </td>
                         </tr>
                         <tr className="border-t border-gray-200 last:border-b-0">
@@ -557,7 +581,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                                 Invoice total
                             </td>
                             <td className="text-center font-bold">
-                                {total.toFixed(2)}€
+                                {formatCurrency(normalizedTotal)}€
                             </td>
                         </tr>
                     </tbody>
