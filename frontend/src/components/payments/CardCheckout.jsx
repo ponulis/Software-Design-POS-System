@@ -19,10 +19,10 @@ export default function CardCheckout({ total, items, orderId, onPaymentDataChang
 
   // Create payment intent when component mounts or orderId changes
   useEffect(() => {
-    if (orderId && !isSplitPaymentEnabled && !paymentIntent) {
+    if (orderId && !isSplitPaymentEnabled && !paymentIntent && stripe && elements) {
       createPaymentIntent();
     }
-  }, [orderId, isSplitPaymentEnabled]);
+  }, [orderId, isSplitPaymentEnabled, stripe, elements]);
 
   const createPaymentIntent = async () => {
     if (!orderId) return;
@@ -145,7 +145,13 @@ export default function CardCheckout({ total, items, orderId, onPaymentDataChang
         </p>
       </div>
 
-      {loading ? (
+      {!stripe || !elements ? (
+        <div className="p-4 border border-yellow-300 rounded-lg bg-yellow-50">
+          <p className="text-sm text-yellow-800">
+            Loading Stripe payment system...
+          </p>
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center p-8">
           <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
           <span className="ml-2 text-sm text-gray-600">Setting up payment...</span>
