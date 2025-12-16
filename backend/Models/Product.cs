@@ -20,4 +20,6 @@ public class Product
     // Navigation properties
     public Business Business { get; set; } = null!;
     public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
+    public ICollection<ProductModificationAssignment> ModificationAssignments { get; set; } = new List<ProductModificationAssignment>();
+    public ICollection<InventoryItem> InventoryItems { get; set; } = new List<InventoryItem>();
 }

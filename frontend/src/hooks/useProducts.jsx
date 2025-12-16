@@ -38,11 +38,15 @@ export function useProducts() {
   const createProduct = useCallback(async (productData) => {
     try {
       setError(null);
+      console.log('Creating product with data:', productData);
       const newProduct = await productsApi.create(productData);
+      console.log('Product created successfully:', newProduct);
       await fetchProducts(); // Refresh list
       return { success: true, product: newProduct };
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Failed to create product';
+      console.error('Error creating product:', err);
+      console.error('Error response:', err.response?.data);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to create product';
       setError(errorMessage);
       return { success: false, error: errorMessage };
     }

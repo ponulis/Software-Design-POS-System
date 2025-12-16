@@ -26,4 +26,5 @@ public class Business
     public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
     public ICollection<Tax> Taxes { get; set; } = new List<Tax>();
     public ICollection<Discount> Discounts { get; set; } = new List<Discount>();
+    public ICollection<ProductModification> ProductModifications { get; set; } = new List<ProductModification>();
 }
