@@ -91,6 +91,29 @@ export default function ProductForm({ product, onSubmit, onCancel, isSubmitting 
     });
   };
 
+  const handleModificationToggle = (modification) => {
+    setSelectedModifications(prev => {
+      const isSelected = prev.some(m => m.id === modification.id);
+      if (isSelected) {
+        // Remove modification
+        const updated = prev.filter(m => m.id !== modification.id);
+        setFormData(formPrev => ({
+          ...formPrev,
+          modificationIds: updated.map(m => m.id),
+        }));
+        return updated;
+      } else {
+        // Add modification
+        const updated = [...prev, modification];
+        setFormData(formPrev => ({
+          ...formPrev,
+          modificationIds: updated.map(m => m.id),
+        }));
+        return updated;
+      }
+    });
+  };
+
   const handleCreateModification = async () => {
     if (!newModificationName.trim()) {
       setErrors(prev => ({ ...prev, newModification: 'Modification name is required' }));
@@ -423,6 +446,7 @@ export default function ProductForm({ product, onSubmit, onCancel, isSubmitting 
                 >
                   <input
                     type="checkbox"
+                    id={`modification-${modification.id}`}
                     checked={isSelected}
                     onChange={() => handleModificationToggle(modification)}
                     className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
