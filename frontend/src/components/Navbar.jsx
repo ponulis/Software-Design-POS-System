@@ -6,6 +6,9 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const base = "px-4 py-2 rounded-lg transition-colors font-medium";
+  const inactive = "text-white/80 hover:text-white hover:bg-white/10";
+  const active = "text-white bg-white/20";
 
   const handleLogout = () => {
     logout();
@@ -71,50 +74,131 @@ export default function Navbar() {
 
   return (
     <div className="w-full bg-blue-600 shadow-lg sticky top-0 z-50">
-      <nav className="max-w-7xl mx-auto">
-        {/* Main navigation bar */}
-        <div className="flex items-center justify-between px-4 py-3">
-          {/* Logo/Brand */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden text-white p-2 rounded-lg hover:bg-white/10 transition"
-              aria-label="Toggle menu"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {mobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-            <h1 className="text-xl font-bold text-white">POS System</h1>
-          </div>
+      <nav className="max-w-7xl mx-auto p-4">
+        <div className="flex items-center justify-between">
+          {/* Mobile menu button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="lg:hidden text-white p-2 rounded-lg hover:bg-white/10"
+            aria-label="Toggle menu"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
-            {navGroups.map((group, groupIdx) => (
-              <div key={group.label} className="flex items-center">
-                {group.items
-                  .filter((item) => !item.adminOnly || user?.role === "Admin")
-                  .map((item) => (
-                    <NavLinkItem key={item.to} to={item.to} label={item.label} icon={item.icon} />
-                  ))}
-                {groupIdx < navGroups.length - 1 && (
-                  <div className="h-6 w-px bg-white/20 mx-2" />
-                )}
-              </div>
-            ))}
-          </div>
+          {/* Desktop menu */}
+          <ul className="hidden lg:flex gap-3">
+            <li>
+              <NavLink to="/" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Home
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/settings" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Settings
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/catalog-products" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Catalog Products
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/taxes-and-service-charges" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Taxes & Service Charges
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/users-and-roles" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Users & Roles
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/payments" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Payments
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/payment-history" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Payment History
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/order-history" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Order History
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to="/reservations" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Reservations
+              </NavLink>
+            </li>
+          </ul>
 
-          {/* User Profile & Logout */}
-          <div className="flex items-center gap-3">
+          {/* Mobile menu */}
+          {mobileMenuOpen && (
+            <div className="absolute top-full left-0 right-0 bg-blue-600 lg:hidden border-t border-blue-500">
+              <ul className="flex flex-col p-4 gap-2">
+                <li>
+                  <NavLink to="/" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
+                    Home
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/settings" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
+                    Settings
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/catalog-products" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
+                    Catalog Products
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/taxes-and-service-charges" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
+                    Taxes & Service Charges
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/users-and-roles" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
+                    Users & Roles
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/payments" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
+                    Payments
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/payment-history" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
+                    Payment History
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/order-history" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
+                    Order History
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/reservations" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
+                    Reservations
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 md:gap-4">
             {user && (
-              <div className="hidden md:flex items-center gap-3 text-white/90">
-                <div className="flex flex-col items-end text-sm">
-                  <span className="font-semibold text-white">{user.name || "User"}</span>
-                  <span className="text-xs text-white/70 capitalize">{user.role || "Employee"}</span>
+              <div className="hidden sm:flex text-white/90 text-sm items-center gap-2">
+                <div className="flex flex-col items-end">
+                  <span className="font-medium">{user.name || 'User'}</span>
+                  <span className="text-xs text-white/70 capitalize">{user.role || 'Employee'}</span>
                 </div>
                 {user.businessId && (
                   <div className="hidden lg:block text-xs text-white/60 px-2 py-1 bg-white/10 rounded">
@@ -125,13 +209,11 @@ export default function Navbar() {
             )}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-white/90 hover:text-white hover:bg-white/10 border border-white/20 text-sm"
+              className="px-3 md:px-4 py-2 rounded-lg transition-colors font-medium text-white/80 hover:text-white hover:bg-white/10 border border-white/20 text-sm"
               title="Logout"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
               <span className="hidden sm:inline">Logout</span>
+              <span className="sm:hidden">Out</span>
             </button>
           </div>
         </div>
