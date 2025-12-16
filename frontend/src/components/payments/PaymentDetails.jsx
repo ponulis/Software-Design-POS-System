@@ -14,6 +14,17 @@ export default function PaymentDetails({ order }) {
   const [selectedPaymentType, setSelectedPaymentType] = useState('Card');
   const [orderDetails, setOrderDetails] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    cashReceived: null,
+    giftCardCode: null,
+    giftCardBalance: null,
+    paymentIntentId: null,
+    clientSecret: null,
+  });
+  const [processing, setProcessing] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [cardPaymentHandler, setCardPaymentHandler] = useState(null);
+  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   // Fetch full order details if order ID is provided
   useEffect(() => {
@@ -37,6 +48,13 @@ export default function PaymentDetails({ order }) {
     }
   }, [order]);
 
+  const handleCancelPayment = () => {
+    if (window.confirm('Are you sure you want to cancel this payment?')) {
+      // TODO: Implement cancel payment logic
+      alert('Payment transaction cancelled.'); 
+    }
+  };
+
   if (!orderDetails) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400 min-h-[400px]">
@@ -58,25 +76,6 @@ export default function PaymentDetails({ order }) {
       </div>
     );
   }
-
-  const handleCancelPayment = () => {
-    if (window.confirm('Are you sure you want to cancel this payment?')) {
-      // TODO: Implement cancel payment logic
-      alert('Payment transaction cancelled.'); 
-    }
-  };
-
-  const [paymentData, setPaymentData] = useState({
-    cashReceived: null,
-    giftCardCode: null,
-    giftCardBalance: null,
-    paymentIntentId: null,
-    clientSecret: null,
-  });
-  const [processing, setProcessing] = useState(false);
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [cardPaymentHandler, setCardPaymentHandler] = useState(null);
-  const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   const handlePaymentDataChange = (data) => {
     setPaymentData((prev) => ({ ...prev, ...data }));
@@ -219,10 +218,11 @@ export default function PaymentDetails({ order }) {
         orderStatus={orderDetails.status}
       />
       
-      {canProcessPayment && (
-        <>
-          <StripeProvider>
-            <CardPaymentHandler onPaymentReady={setCardPaymentHandler}>
+      {/* Always render StripeProvider and CardPaymentHandler to maintain consistent hook order */}
+      <StripeProvider>
+        <CardPaymentHandler onPaymentReady={setCardPaymentHandler}>
+          {canProcessPayment ? (
+            <>
               <CheckoutDetails 
                 paymentType={selectedPaymentType} 
                 total={total} 
@@ -230,19 +230,19 @@ export default function PaymentDetails({ order }) {
                 orderId={orderDetails.id}
                 onPaymentDataChange={handlePaymentDataChange}
               />
-            </CardPaymentHandler>
-          </StripeProvider>
-          
-          <div className="flex flex-row gap-8 rounded-full justify-end w-full">
-            <PaymentButton isImportant={false} onClick={handleCancelPayment} disabled={processing}>
-              CANCEL PAYMENT
-            </PaymentButton>
-            <PaymentButton isImportant={true} onClick={handleProcessPayment} disabled={processing}>
-              {processing ? 'PROCESSING...' : 'PROCESS PAYMENT'}
-            </PaymentButton>
-          </div>
-        </>
-      )}
+              
+              <div className="flex flex-row gap-8 rounded-full justify-end w-full">
+                <PaymentButton isImportant={false} onClick={handleCancelPayment} disabled={processing}>
+                  CANCEL PAYMENT
+                </PaymentButton>
+                <PaymentButton isImportant={true} onClick={handleProcessPayment} disabled={processing}>
+                  {processing ? 'PROCESSING...' : 'PROCESS PAYMENT'}
+                </PaymentButton>
+              </div>
+            </>
+          ) : null}
+        </CardPaymentHandler>
+      </StripeProvider>
 
       {!canProcessPayment && (
         <div className={`w-full p-4 rounded-lg text-center ${
