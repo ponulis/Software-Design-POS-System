@@ -39,8 +39,10 @@ export default function CatalogProducts() {
   });
 
   const handleCreate = () => {
+    console.log('Create button clicked, opening modal');
     setEditingProduct(null);
     setIsModalOpen(true);
+    console.log('Modal state set to true');
   };
 
   const handleEdit = (product) => {
@@ -56,11 +58,20 @@ export default function CatalogProducts() {
   };
 
   const handleSubmit = async (formData) => {
+    let result;
     if (editingProduct) {
-      await updateProduct(editingProduct.id, formData);
+      result = await updateProduct(editingProduct.id, formData);
     } else {
-      await createProduct(formData);
+      result = await createProduct(formData);
     }
+    
+    if (result.success) {
+      setIsModalOpen(false);
+      setEditingProduct(null);
+    }
+    
+    // Return result so modal can handle errors
+    return result;
   };
 
   if (loading && products.length === 0) {

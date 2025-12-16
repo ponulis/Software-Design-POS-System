@@ -41,8 +41,8 @@ public class MenuItemsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving menu items");
-            return StatusCode(500, new { message = "An error occurred while retrieving menu items" });
+            _logger.LogError(ex, "Error retrieving menu items: {Message}", ex.Message);
+            return StatusCode(500, new { message = $"An error occurred while retrieving menu items: {ex.Message}" });
         }
     }
 
@@ -112,10 +112,15 @@ public class MenuItemsController : ControllerBase
             var product = await _productService.CreateProductAsync(request, businessId);
             return CreatedAtAction(nameof(GetMenuItemById), new { menuItemId = product.Id }, product);
         }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Validation error creating menu item: {Message}", ex.Message);
+            return BadRequest(new { message = ex.Message });
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating menu item");
-            return StatusCode(500, new { message = "An error occurred while creating the menu item" });
+            _logger.LogError(ex, "Error creating menu item: {Message}", ex.Message);
+            return StatusCode(500, new { message = $"An error occurred while creating the menu item: {ex.Message}" });
         }
     }
 

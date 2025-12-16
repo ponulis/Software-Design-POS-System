@@ -10,4 +10,10 @@ public class ProductResponse
     public bool Available { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    
+    // Modification attributes assigned to this product
+    public List<ProductModificationResponse> Modifications { get; set; } = new();
+    
+    // Inventory items for this product
+    public List<InventoryItemResponse> InventoryItems { get; set; } = new();
 }
