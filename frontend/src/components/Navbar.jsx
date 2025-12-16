@@ -38,6 +38,7 @@ export default function Navbar() {
         { to: "/catalog-products", label: "Products", icon: "🛍️" },
         { to: "/taxes-and-service-charges", label: "Taxes", icon: "📊" },
         { to: "/users-and-roles", label: "Users", icon: "👥", adminOnly: true },
+        { to: "/discounts", label: "Discounts", icon: "🎁" },
         { to: "/settings", label: "Settings", icon: "⚙️" },
       ],
     },
@@ -138,6 +139,11 @@ export default function Navbar() {
                 Reservations
               </NavLink>
             </li>
+            <li className="flex-grow flex items-center justify-center">
+              <NavLink to="/discounts" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                Discount Management
+              </NavLink>
+            </li>
           </ul>
 
           {/* Mobile menu */}
@@ -187,6 +193,11 @@ export default function Navbar() {
                 <li>
                   <NavLink to="/reservations" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
                     Reservations
+                  </NavLink>
+                </li>
+                <li className="flex-grow flex items-center justify-center">
+                  <NavLink to="/discounts" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
+                    Discount Management
                   </NavLink>
                 </li>
               </ul>

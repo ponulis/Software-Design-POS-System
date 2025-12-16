@@ -15,6 +15,7 @@ import ToastContainer from "./components/ToastContainer";
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import { Routes, Route, Navigate } from "react-router-dom";
+import Discounts from "./pages/Discounts";
 
 export default function App() {
   return (
@@ -103,6 +104,15 @@ export default function App() {
                       </ProtectedRoute>
                     }
                   />
+                  <Route
+                    path="/discounts"
+                    element={
+                      <ProtectedRoute>
+                        <Discounts />
+                      </ProtectedRoute>
+                    }
+                  />
+                  
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </div>
