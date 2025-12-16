@@ -35,13 +35,25 @@ export default function AddAppointmentModal({
     }
   }; 
 
+    const fieldOrder = [
+      "date",
+      "time",
+      "service",
+      "customer",
+      "phone",
+      "duration",
+      "prepaid",
+      "staff",
+      "notes",
+    ];
+
   return (
     <div className="fixed inset-0 flex justify-center items-center p-4 bg-black/30 z-50">
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-3xl">
         <h2 className="text-xl font-bold mb-4">New Appointment</h2>
 
         <div className="grid grid-cols-3 gap-4 mb-4">
-          {Object.keys(newApt).map((key) => (
+          {fieldOrder.map((key) => (
             <div key={key}>
               <p className="text-xs font-semibold uppercase text-gray-500 mb-1">
                 {key}
@@ -93,14 +105,14 @@ export default function AddAppointmentModal({
               ) : key === "service" ? (
                 <select
                   className="w-full border p-2 rounded text-sm"
-                  value={newApt[key] || ""}
+                  value={newApt.serviceId || ""}
                   onChange={(e) => {
                     const serviceId = e.target.value;
-                    const selectedService = services.find(s => s.id === parseInt(serviceId));
+                    const selectedService = services.find(s => s.id === Number(serviceId));
                     setNewApt({ 
                       ...newApt, 
-                      [key]: selectedService?.name || "",
-                      serviceId: serviceId || null,
+                      service: selectedService?.name || "",
+                      serviceId,
                       duration: selectedService?.durationMinutes?.toString() || newApt.duration
                     });
                   }}
@@ -116,14 +128,14 @@ export default function AddAppointmentModal({
               ) : key === "staff" ? (
                 <select
                   className="w-full border p-2 rounded text-sm"
-                  value={newApt[key] || ""}
+                  value={newApt.employeeId || ""}
                   onChange={(e) => {
                     const employeeId = e.target.value;
-                    const selectedEmployee = employees.find(e => e.id === parseInt(employeeId));
+                    const selectedEmployee = employees.find(e => e.id === Number(employeeId));
                     setNewApt({ 
                       ...newApt, 
-                      [key]: selectedEmployee?.name || "",
-                      employeeId: employeeId || null
+                      employeeId,
+                      staff: selectedEmployee?.name || "",
                     });
                   }}
                   disabled={employeesLoading}
@@ -135,16 +147,6 @@ export default function AddAppointmentModal({
                     </option>
                   ))}
                 </select>
-              ) : key === "duration" ? (
-                <input
-                  type="number"
-                  className="w-full border p-2 rounded text-sm"
-                  placeholder="Duration (minutes)"
-                  value={newApt[key] || ""}
-                  onChange={(e) =>
-                    setNewApt({ ...newApt, [key]: e.target.value })
-                  }
-                />
               ) : key === "prepaid" ? (
                 <select
                   className="w-full border p-2 rounded text-sm"
@@ -189,7 +191,7 @@ export default function AddAppointmentModal({
             Cancel
           </button>
           <button
-            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleSubmit}
             type="button"
             disabled={submitting}

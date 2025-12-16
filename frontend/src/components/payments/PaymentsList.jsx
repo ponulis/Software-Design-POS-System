@@ -46,9 +46,9 @@ export default function PaymentsList({ orders = [], selected, onSelect }) {
           <div
             key={order.id}
             onClick={() => onSelect(order)}
-            className={`grid grid-cols-5 items-center p-4 rounded-lg border cursor-pointer transition hover:bg-purple-50 
-              ${selected?.id === order.id ? "ring-2 ring-purple-400 bg-purple-100" : ""} 
-              bg-white border-purple-100`}
+            className={`grid grid-cols-5 items-center p-4 rounded-lg border cursor-pointer transition hover:bg-blue-50 
+              ${selected?.id === order.id ? "ring-2 ring-blue-400 bg-blue-100" : ""} 
+              bg-white border-blue-100`}
           >
             <div>
               <p className="font-semibold text-gray-800">{formatDate(order.createdAt)}</p>
