@@ -56,7 +56,7 @@ public class OrderService
             var product = products.First(p => p.Id == itemRequest.MenuId);
             var orderItem = new OrderItem
             {
-                OrderId = order.Id, // Will be set after order is saved
+                // OrderId will be automatically set by EF Core when order is saved via navigation property
                 MenuId = itemRequest.MenuId,
                 Quantity = itemRequest.Quantity,
                 Price = itemRequest.Price ?? product.Price,
@@ -210,7 +210,7 @@ public class OrderService
                 var product = products.First(p => p.Id == itemRequest.MenuId);
                 var orderItem = new OrderItem
                 {
-                    OrderId = order.Id,
+                    // OrderId will be automatically set by EF Core when order is saved via navigation property
                     MenuId = itemRequest.MenuId,
                     Quantity = itemRequest.Quantity,
                     Price = itemRequest.Price ?? product.Price,
