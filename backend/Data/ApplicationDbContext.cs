@@ -21,6 +21,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<Discount> Discounts { get; set; }
     public DbSet<Payment> Payments { get; set; }
     public DbSet<GiftCard> GiftCards { get; set; }
+    public DbSet<ProductModification> ProductModifications { get; set; }
+    public DbSet<ProductModificationValue> ProductModificationValues { get; set; }
+    public DbSet<ProductModificationAssignment> ProductModificationAssignments { get; set; }
+    public DbSet<InventoryItem> InventoryItems { get; set; }
+    public DbSet<InventoryModificationValue> InventoryModificationValues { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -291,6 +296,113 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => e.BusinessId);
+        });
+
+        // ProductModification configuration
+        modelBuilder.Entity<ProductModification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            
+            // Pricing fields
+            entity.Property(e => e.PriceType)
+                .HasConversion<int>() // Store enum as int
+                .IsRequired();
+            entity.Property(e => e.FixedPriceAddition).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PercentagePriceIncrease).HasColumnType("decimal(18,2)");
+
+            // Relationship: ProductModification -> Business
+            entity.HasOne(e => e.Business)
+                .WithMany(b => b.ProductModifications)
+                .HasForeignKey(e => e.BusinessId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.BusinessId);
+            
+            // Unique constraint: BusinessId + Name (each business can have unique modification names)
+            entity.HasIndex(e => new { e.BusinessId, e.Name }).IsUnique();
+        });
+
+        // ProductModificationValue configuration
+        modelBuilder.Entity<ProductModificationValue>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Value).IsRequired().HasMaxLength(200);
+
+            // Relationship: ProductModificationValue -> ProductModification
+            entity.HasOne(e => e.Modification)
+                .WithMany(m => m.Values)
+                .HasForeignKey(e => e.ModificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.ModificationId);
+            
+            // Unique constraint: ModificationId + Value (each modification can have unique values)
+            entity.HasIndex(e => new { e.ModificationId, e.Value }).IsUnique();
+        });
+
+        // ProductModificationAssignment configuration
+        modelBuilder.Entity<ProductModificationAssignment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            // Relationship: ProductModificationAssignment -> Product
+            entity.HasOne(e => e.Product)
+                .WithMany(p => p.ModificationAssignments)
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Relationship: ProductModificationAssignment -> ProductModification
+            entity.HasOne(e => e.Modification)
+                .WithMany(m => m.ProductAssignments)
+                .HasForeignKey(e => e.ModificationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.ProductId);
+            entity.HasIndex(e => e.ModificationId);
+            
+            // Unique constraint: ProductId + ModificationId (each product can only have each modification once)
+            entity.HasIndex(e => new { e.ProductId, e.ModificationId }).IsUnique();
+        });
+
+        // InventoryItem configuration
+        modelBuilder.Entity<InventoryItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Quantity).IsRequired();
+            entity.Property(e => e.ModificationValuesJson).IsRequired().HasMaxLength(1000);
+
+            // Relationship: InventoryItem -> Product
+            entity.HasOne(e => e.Product)
+                .WithMany(p => p.InventoryItems)
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.ProductId);
+        });
+
+        // InventoryModificationValue configuration
+        modelBuilder.Entity<InventoryModificationValue>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            // Relationship: InventoryModificationValue -> InventoryItem
+            entity.HasOne(e => e.InventoryItem)
+                .WithMany(i => i.ModificationValues)
+                .HasForeignKey(e => e.InventoryItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Relationship: InventoryModificationValue -> ProductModificationValue
+            entity.HasOne(e => e.ModificationValue)
+                .WithMany(mv => mv.InventoryItems)
+                .HasForeignKey(e => e.ModificationValueId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.InventoryItemId);
+            entity.HasIndex(e => e.ModificationValueId);
+            
+            // Unique constraint: InventoryItemId + ModificationValueId
+            entity.HasIndex(e => new { e.InventoryItemId, e.ModificationValueId }).IsUnique();
         });
     }
 }
