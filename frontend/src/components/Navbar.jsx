@@ -20,25 +20,25 @@ export default function Navbar() {
     {
       label: "Main",
       items: [
-        { to: "/", label: "Dashboard", icon: "📊" },
-        { to: "/payments", label: "Orders", icon: "💰" },
-        { to: "/reservations", label: "Appointments", icon: "📅" },
+        { to: "/", label: "Dashboard" },
+        { to: "/payments", label: "Orders" },
+        { to: "/reservations", label: "Appointments" },
       ],
     },
     {
       label: "Reports",
       items: [
-        { to: "/payment-history", label: "Payments", icon: "💳" },
-        { to: "/order-history", label: "Orders", icon: "📋" },
+        { to: "/payment-history", label: "Payments" },
+        { to: "/order-history", label: "Orders" },
       ],
     },
     {
       label: "Management",
       items: [
-        { to: "/catalog-products", label: "Products", icon: "🛍️" },
-        { to: "/taxes-and-service-charges", label: "Taxes", icon: "📊" },
-        { to: "/users-and-roles", label: "Users", icon: "👥", adminOnly: true },
-        { to: "/settings", label: "Settings", icon: "⚙️" },
+        { to: "/catalog-products", label: "Products" },
+        { to: "/taxes-and-service-charges", label: "Taxes" },
+        { to: "/users-and-roles", label: "Users", adminOnly: true },
+        { to: "/settings", label: "Settings" },
       ],
     },
   ];
