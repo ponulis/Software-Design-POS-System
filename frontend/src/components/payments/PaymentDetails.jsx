@@ -107,6 +107,10 @@ export default function PaymentDetails({ order }) {
         showErrorToast('Please wait for payment to initialize');
         return;
       }
+      if (!cardPaymentHandler) {
+        showErrorToast('Card payment handler not ready. Please wait.');
+        return;
+      }
     }
 
     if (!window.confirm(`Process ${selectedPaymentType} payment of ${numericTotal.toFixed(2)}€?`)) {
