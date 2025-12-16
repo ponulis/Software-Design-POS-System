@@ -51,11 +51,15 @@ export default function TaxForm({ tax, onSubmit, onCancel, submitting }) {
         <input
           {...register('name', { required: 'Tax name is required' })}
           type="text"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            errors.name ? 'border-red-500' : 'border-gray-300'
+          }`}
+          placeholder="e.g., VAT, Sales Tax"
+          maxLength={200}
           disabled={submitting}
         />
         {errors.name && (
-          <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>
+          <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
         )}
       </div>
 
@@ -73,11 +77,14 @@ export default function TaxForm({ tax, onSubmit, onCancel, submitting }) {
           step="0.01"
           min="0"
           max="100"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            errors.rate ? 'border-red-500' : 'border-gray-300'
+          }`}
+          placeholder="e.g., 21.0"
           disabled={submitting}
         />
         {errors.rate && (
-          <p className="text-red-500 text-xs mt-1">{errors.rate.message}</p>
+          <p className="mt-1 text-sm text-red-600">{errors.rate.message}</p>
         )}
         <p className="mt-1 text-xs text-gray-500">
           Enter the tax rate as a percentage (e.g., 21 for 21%)
@@ -91,11 +98,13 @@ export default function TaxForm({ tax, onSubmit, onCancel, submitting }) {
         <input
           {...register('effectiveFrom', { required: 'Effective from date is required' })}
           type="date"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            errors.effectiveFrom ? 'border-red-500' : 'border-gray-300'
+          }`}
           disabled={submitting}
         />
         {errors.effectiveFrom && (
-          <p className="text-red-500 text-xs mt-1">{errors.effectiveFrom.message}</p>
+          <p className="mt-1 text-sm text-red-600">{errors.effectiveFrom.message}</p>
         )}
       </div>
 
@@ -106,9 +115,14 @@ export default function TaxForm({ tax, onSubmit, onCancel, submitting }) {
         <input
           {...register('effectiveTo')}
           type="date"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            errors.effectiveTo ? 'border-red-500' : 'border-gray-300'
+          }`}
           disabled={submitting}
         />
+        {errors.effectiveTo && (
+          <p className="mt-1 text-sm text-red-600">{errors.effectiveTo.message}</p>
+        )}
       </div>
 
       <div className="flex items-center">
@@ -122,6 +136,9 @@ export default function TaxForm({ tax, onSubmit, onCancel, submitting }) {
         <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
           Active
         </label>
+        <p className="ml-4 text-xs text-gray-500">
+          Only active taxes will be applied to orders
+        </p>
       </div>
 
       <div className="flex gap-3 pt-4">
