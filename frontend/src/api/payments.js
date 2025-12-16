@@ -44,4 +44,15 @@ export const paymentsApi = {
     const response = await apiClient.get('/payments/history', { params });
     return response.data;
   },
+
+  /**
+   * Create split payments (multiple payments for one order)
+   * @param {Object} splitPaymentData - Split payment data
+   * @param {number} splitPaymentData.orderId - Order ID
+   * @param {Array} splitPaymentData.payments - Array of payment objects
+   */
+  createSplitPayments: async (splitPaymentData) => {
+    const response = await apiClient.post('/payments/split', splitPaymentData);
+    return response.data;
+  },
 };
