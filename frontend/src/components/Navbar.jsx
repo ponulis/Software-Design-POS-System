@@ -6,7 +6,7 @@ export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const base = "px-4 py-2 rounded-lg transition-colors font-medium";
+  const base = "rounded-lg text-center p-2 transition-colors font-medium";
   const inactive = "text-white/80 hover:text-white hover:bg-white/10";
   const active = "text-white bg-white/20";
 
@@ -21,7 +21,7 @@ export default function Navbar() {
       label: "Main",
       items: [
         { to: "/", label: "Dashboard", icon: "📊" },
-        { to: "/payments", label: "Orders", icon: "💰" },
+        { to: "/payments", label: "Transactions", icon: "💰" },
         { to: "/reservations", label: "Appointments", icon: "📅" },
       ],
     },
@@ -73,9 +73,9 @@ export default function Navbar() {
   };
 
   return (
-    <div className="w-full bg-blue-600 shadow-lg sticky top-0 z-50">
+    <div className="w-full bg-blue-600 shadow-lg sticky top-0 z-50 flex">
       <nav className="max-w-7xl mx-auto p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           {/* Mobile menu button */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -92,48 +92,48 @@ export default function Navbar() {
           </button>
 
           {/* Desktop menu */}
-          <ul className="hidden lg:flex gap-3">
-            <li>
+          <ul className="hidden lg:flex gap-6">
+            <li className="flex-grow flex items-center justify-center">
               <NavLink to="/" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
-                Home
+                Dashboard
               </NavLink>
             </li>
-            <li>
+            <li className="flex-grow flex items-center justify-center">
               <NavLink to="/settings" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
-                Settings
+                Business Settings
               </NavLink>
             </li>
-            <li>
+            <li className="flex-grow flex items-center justify-center">
               <NavLink to="/catalog-products" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
-                Catalog Products
+                Product Catalog
               </NavLink>
             </li>
-            <li>
+            <li className="flex-grow flex items-center justify-center">
               <NavLink to="/taxes-and-service-charges" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
-                Taxes & Service Charges
+                Tax Management
               </NavLink>
             </li>
-            <li>
+            <li className="flex-grow flex items-center justify-center">
               <NavLink to="/users-and-roles" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
-                Users & Roles
+                User Management
               </NavLink>
             </li>
-            <li>
+            <li className="flex-grow flex items-center justify-center">
               <NavLink to="/payments" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
-                Payments
+                Transactions
               </NavLink>
             </li>
-            <li>
+            <li className="flex-grow flex items-center justify-center">
               <NavLink to="/payment-history" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
                 Payment History
               </NavLink>
             </li>
-            <li>
+            <li className="flex-grow flex items-center justify-center">
               <NavLink to="/order-history" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
                 Order History
               </NavLink>
             </li>
-            <li>
+            <li className="flex-grow flex items-center justify-center">
               <NavLink to="/reservations" className={({ isActive }) => `${base} ${isActive ? active : inactive}`}>
                 Reservations
               </NavLink>
@@ -146,32 +146,32 @@ export default function Navbar() {
               <ul className="flex flex-col p-4 gap-2">
                 <li>
                   <NavLink to="/" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
-                    Home
+                    Dashboard
                   </NavLink>
                 </li>
                 <li>
                   <NavLink to="/settings" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
-                    Settings
+                    Business Settings
                   </NavLink>
                 </li>
                 <li>
                   <NavLink to="/catalog-products" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
-                    Catalog Products
+                    Product Catalog
                   </NavLink>
                 </li>
                 <li>
                   <NavLink to="/taxes-and-service-charges" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
-                    Taxes & Service Charges
+                    Tax Management
                   </NavLink>
                 </li>
                 <li>
                   <NavLink to="/users-and-roles" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
-                    Users & Roles
+                    User Management
                   </NavLink>
                 </li>
                 <li>
                   <NavLink to="/payments" className={({ isActive }) => `${base} ${isActive ? active : inactive}`} onClick={() => setMobileMenuOpen(false)}>
-                    Payments
+                    Transactions
                   </NavLink>
                 </li>
                 <li>
@@ -193,15 +193,16 @@ export default function Navbar() {
             </div>
           )}
 
-          <div className="flex items-center gap-2 md:gap-4">
+
+          <div className="flex items-center p-2 rounded ml-auto">
             {user && (
-              <div className="hidden sm:flex text-white/90 text-sm items-center gap-2">
-                <div className="flex flex-col items-end">
+              <div className="hidden sm:flex text-white/90 text-sm items-center p-2 ">
+                <div className="flex flex-col items-start">
                   <span className="font-medium">{user.name || 'User'}</span>
-                  <span className="text-xs text-white/70 capitalize">{user.role || 'Employee'}</span>
+                  <span className="text-xs text-white/70">{user.role || 'Employee'}</span>
                 </div>
                 {user.businessId && (
-                  <div className="hidden lg:block text-xs text-white/60 px-2 py-1 bg-white/10 rounded">
+                  <div className="hidden lg:block text-xs text-white/60 px-2">
                     Business #{user.businessId}
                   </div>
                 )}
@@ -209,13 +210,14 @@ export default function Navbar() {
             )}
             <button
               onClick={handleLogout}
-              className="px-3 md:px-4 py-2 rounded-lg transition-colors font-medium text-white/80 hover:text-white hover:bg-white/10 border border-white/20 text-sm"
+              className="rounded-lg p-2 transition-colors font-medium text-white/80 hover:text-white hover:bg-white/10  text-sm"
               title="Logout"
             >
               <span className="hidden sm:inline">Logout</span>
-              <span className="sm:hidden">Out</span>
+              <span className="sm:hidden">➜]</span>
             </button>
           </div>
+
         </div>
 
         {/* Mobile Menu */}
