@@ -1,4 +1,5 @@
 import { useStripe, useElements } from '@stripe/react-stripe-js';
+import { useCallback } from 'react';
 import { stripeApi } from '../../api/stripe';
 import { useToast } from '../../context/ToastContext';
 import { getErrorMessage } from '../../utils/errorHandler';
@@ -8,7 +9,7 @@ export function useStripePayment() {
   const elements = useElements();
   const { error: showErrorToast, success: showSuccessToast } = useToast();
 
-  const confirmCardPayment = async (clientSecret, orderId, paymentIntentId) => {
+  const confirmCardPayment = useCallback(async (clientSecret, orderId, paymentIntentId) => {
     if (!stripe || !elements) {
       throw new Error('Stripe not initialized');
     }
@@ -43,7 +44,7 @@ export function useStripePayment() {
     });
 
     return confirmResponse.payment;
-  };
+  }, [stripe, elements]);
 
   return {
     confirmCardPayment,

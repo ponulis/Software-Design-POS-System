@@ -144,7 +144,7 @@ export default function SplitPayment({ total, items }) {
                                     </div>
                                 </td>
 
-                                <td key={guest.id} className="text-center">
+                                <td className="text-center">
                                     {/* Temp hardcoded for mockup */}
                                     <p>0.00€</p>
                                 </td>
