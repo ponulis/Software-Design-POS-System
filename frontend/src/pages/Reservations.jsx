@@ -58,13 +58,13 @@ export default function Reservations() {
       setNewApt({
         date: "",
         time: "",
+        duration: "",
         customer: "",
         phone: "",
         staff: "",
         service: "",
-        serviceId: null,
-        employeeId: null,
-        duration: "",
+        //serviceId: null,
+        //employeeId: null,
         prepaid: "No",
         notes: "",
       });
@@ -91,7 +91,7 @@ export default function Reservations() {
     return (
       <div className="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-4"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
           <p className="text-gray-600">Loading appointments...</p>
         </div>
       </div>
@@ -100,7 +100,7 @@ export default function Reservations() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 flex gap-6">
-      <div className="w-2/3 bg-white shadow rounded-xl p-6">
+      <div className="w-2/3 bg-white shadow rounded-xl p-6 flex-col">
         <h2 className="text-sm font-semibold text-gray-500 uppercase mb-1">
           Reservations
         </h2>
@@ -117,6 +117,15 @@ export default function Reservations() {
           selected={selected}
           onSelect={selectAppointment}
         />
+
+        <div className="mt-4 flex justify-center">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-xl shadow hover:bg-blue-700"
+          >
+            Add Appointment
+          </button>
+        </div>
       </div>
 
       <div className="w-1/3 bg-white shadow rounded-xl p-6">
@@ -125,15 +134,6 @@ export default function Reservations() {
           onCancel={cancelAppointment}
           onReschedule={handleReschedule}
         />
-      </div>
-
-      <div className="fixed bottom-6 right-6">
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-purple-600 text-white px-4 py-2 rounded-xl shadow hover:bg-purple-700"
-        >
-          Add Appointment
-        </button>
       </div>
 
       <AddAppointmentModal
