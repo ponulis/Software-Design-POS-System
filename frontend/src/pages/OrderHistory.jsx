@@ -130,14 +130,14 @@ export default function OrderHistory() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-center">
           <div>
-            <h2 className="text-sm font-semibold text-gray-500 uppercase mb-1">Reports</h2>
-            <h1 className="text-2xl font-bold text-gray-900">Order History</h1>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase mb-1">Order History</h2>
+            <h1 className="text-2xl font-bold text-gray-900">Orders</h1>
           </div>
           <button
             onClick={() => navigate('/payments')}
             className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
           >
-            Back to Orders
+            Back to Transactions
           </button>
         </div>
 

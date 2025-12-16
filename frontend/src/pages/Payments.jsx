@@ -46,9 +46,9 @@ export default function Payments() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
             <h2 className="text-sm font-semibold text-gray-500 uppercase mb-1">
-              Orders & Payments
+              Transactions
             </h2>
-            <h1 className="text-xl md:text-2xl font-bold">Orders</h1>
+            <h1 className="text-xl md:text-2xl font-bold">Orders & Payments</h1>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <button

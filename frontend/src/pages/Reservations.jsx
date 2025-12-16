@@ -102,7 +102,7 @@ export default function Reservations() {
     <div className="min-h-screen bg-gray-100 p-6 flex gap-6">
       <div className="w-2/3 bg-white shadow rounded-xl p-6">
         <h2 className="text-sm font-semibold text-gray-500 uppercase mb-1">
-          Schedule
+          Reservations
         </h2>
         <h1 className="text-2xl font-bold mb-6">Daily Appointments</h1>
 
