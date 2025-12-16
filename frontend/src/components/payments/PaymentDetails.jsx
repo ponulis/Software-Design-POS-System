@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import PaymentButton from "./PaymentButton";
 import OrderDetails from "./OrderDetails";
 import CheckoutDetails from "./CheckoutDetails";
+import SplitPayment from "./SplitPayment";
 import ReceiptModal from "../receipts/ReceiptModal";
 import StripeProvider from "../stripe/StripeProvider";
 import CardPaymentHandler from "./CardPaymentHandler";
@@ -11,6 +12,7 @@ import { useToast } from "../../context/ToastContext";
 import { getErrorMessage } from "../../utils/errorHandler";
 
 export default function PaymentDetails({ order }) {
+  const [paymentMode, setPaymentMode] = useState('single'); // 'single' or 'split'
   const [selectedPaymentType, setSelectedPaymentType] = useState('Card');
   const [orderDetails, setOrderDetails] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -79,6 +81,12 @@ export default function PaymentDetails({ order }) {
 
   const handlePaymentDataChange = (data) => {
     setPaymentData((prev) => ({ ...prev, ...data }));
+  };
+
+  const handleSplitPaymentComplete = async (updatedOrder) => {
+    // Refresh order details after split payment
+    const refreshedOrder = await ordersApi.getById(orderDetails.id);
+    setOrderDetails(refreshedOrder);
   };
 
   const handleProcessPayment = async () => {
@@ -168,7 +176,8 @@ export default function PaymentDetails({ order }) {
   };
 
   // Convert order items to format expected by OrderDetails component
-  const items = orderDetails.items?.map((item) => ({
+  const items = orderDetails.items?.map((item, idx) => ({
+    id: item.id || idx, // Use item ID or fallback to index
     title: item.productName || `Product #${item.menuId}`,
     subtitle: item.notes || '',
     qty: item.quantity,
@@ -186,63 +195,118 @@ export default function PaymentDetails({ order }) {
   return (
     <div className="flex flex-col gap-6 rounded-xl p-6 items-center">
       {canProcessPayment && (
-        <div className="flex flex-row gap-8 w-full justify-center">
-          <PaymentButton 
-            onClick={() => setSelectedPaymentType('Card')} 
-            selected={selectedPaymentType === 'Card'}
-          >
-            PAYMENT BY CARD
-          </PaymentButton>
-          <PaymentButton 
-            onClick={() => setSelectedPaymentType('Cash')} 
-            selected={selectedPaymentType === 'Cash'}
-          >
-            PAYMENT BY CASH
-          </PaymentButton>
-          <PaymentButton 
-            onClick={() => setSelectedPaymentType('Gift Card')} 
-            selected={selectedPaymentType === 'Gift Card'}
-          >
-            PAYMENT BY GIFT CARD
-          </PaymentButton>
-        </div>
-      )}
+        <>
+          {/* Payment Mode Toggle */}
+          <div className="flex flex-row gap-4 w-full justify-center mb-2">
+            <PaymentButton 
+              onClick={() => setPaymentMode('single')} 
+              selected={paymentMode === 'single'}
+            >
+              SINGLE PAYMENT
+            </PaymentButton>
+            <PaymentButton 
+              onClick={() => setPaymentMode('split')} 
+              selected={paymentMode === 'split'}
+            >
+              SPLIT PAYMENT
+            </PaymentButton>
+          </div>
 
-      <OrderDetails 
-        paymentType={selectedPaymentType}
-        items={items}
-        subtotal={subtotal}
-        taxes={taxes}
-        discounts={discounts}
-        total={total}
-        orderStatus={orderDetails.status}
-      />
-      
-      {/* Always render StripeProvider and CardPaymentHandler to maintain consistent hook order */}
-      <StripeProvider>
-        <CardPaymentHandler onPaymentReady={setCardPaymentHandler}>
-          {canProcessPayment ? (
+          {paymentMode === 'single' ? (
             <>
-              <CheckoutDetails 
-                paymentType={selectedPaymentType} 
-                total={total} 
-                items={items} 
-                orderId={orderDetails.id}
-                onPaymentDataChange={handlePaymentDataChange}
-              />
-              
-              <div className="flex flex-row gap-8 rounded-full justify-end w-full">
-                <PaymentButton isImportant={false} onClick={handleCancelPayment} disabled={processing}>
-                  CANCEL PAYMENT
+              {/* Single Payment Mode */}
+              <div className="flex flex-row gap-8 w-full justify-center">
+                <PaymentButton 
+                  onClick={() => setSelectedPaymentType('Card')} 
+                  selected={selectedPaymentType === 'Card'}
+                >
+                  PAYMENT BY CARD
                 </PaymentButton>
-                <PaymentButton isImportant={true} onClick={handleProcessPayment} disabled={processing}>
-                  {processing ? 'PROCESSING...' : 'PROCESS PAYMENT'}
+                <PaymentButton 
+                  onClick={() => setSelectedPaymentType('Cash')} 
+                  selected={selectedPaymentType === 'Cash'}
+                >
+                  PAYMENT BY CASH
+                </PaymentButton>
+                <PaymentButton 
+                  onClick={() => setSelectedPaymentType('Gift Card')} 
+                  selected={selectedPaymentType === 'Gift Card'}
+                >
+                  PAYMENT BY GIFT CARD
                 </PaymentButton>
               </div>
+
+              <OrderDetails 
+                paymentType={selectedPaymentType}
+                items={items}
+                subtotal={subtotal}
+                taxes={taxes}
+                discounts={discounts}
+                total={total}
+                orderStatus={orderDetails.status}
+              />
+              
+              {/* Always render StripeProvider and CardPaymentHandler to maintain consistent hook order */}
+              <StripeProvider>
+                <CardPaymentHandler onPaymentReady={setCardPaymentHandler}>
+                  <CheckoutDetails 
+                    paymentType={selectedPaymentType} 
+                    total={total} 
+                    items={items} 
+                    orderId={orderDetails.id}
+                    onPaymentDataChange={handlePaymentDataChange}
+                  />
+                  
+                  <div className="flex flex-row gap-8 rounded-full justify-end w-full">
+                    <PaymentButton isImportant={false} onClick={handleCancelPayment} disabled={processing}>
+                      CANCEL PAYMENT
+                    </PaymentButton>
+                    <PaymentButton isImportant={true} onClick={handleProcessPayment} disabled={processing}>
+                      {processing ? 'PROCESSING...' : 'PROCESS PAYMENT'}
+                    </PaymentButton>
+                  </div>
+                </CardPaymentHandler>
+              </StripeProvider>
             </>
-          ) : null}
-        </CardPaymentHandler>
-      </StripeProvider>
+          ) : (
+            <>
+              {/* Split Payment Mode */}
+              <OrderDetails 
+                paymentType={null}
+                items={items}
+                subtotal={subtotal}
+                taxes={taxes}
+                discounts={discounts}
+                total={total}
+                orderStatus={orderDetails.status}
+              />
+              <SplitPayment
+                order={orderDetails}
+                items={items}
+                subtotal={subtotal}
+                taxes={taxes}
+                discounts={discounts}
+                total={total}
+                onPaymentComplete={handleSplitPaymentComplete}
+              />
+            </>
+          )}
+        </>
+      )}
+
+      {!canProcessPayment && (
+        <>
+          <OrderDetails 
+            paymentType={null}
+            items={items}
+            subtotal={subtotal}
+            taxes={taxes}
+            discounts={discounts}
+            total={total}
+            orderStatus={orderDetails.status}
+          />
+        </>
+      )}
 
       {!canProcessPayment && (
         <div className={`w-full p-4 rounded-lg text-center ${

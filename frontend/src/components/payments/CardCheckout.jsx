@@ -4,15 +4,17 @@ import { stripeApi } from "../../api/stripe";
 import { useToast } from "../../context/ToastContext";
 import SplitPayment from "./SplitPayment";
 
-export default function CardCheckout({ total, items, orderId, onPaymentDataChange }) {
+export default function CardCheckout({ total, items, orderId, onPaymentDataChange, isSplitPaymentMode = false }) {
   const stripe = useStripe();
   const elements = useElements();
-  const { error: showErrorToast } = useToast();
+  const { error: showErrorToast, success: showSuccessToast } = useToast();
   
   const [isSplitPaymentEnabled, setIsSplitPaymentEnabled] = useState(false);
   const [paymentIntent, setPaymentIntent] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [cardError, setCardError] = useState(null);
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
   const numericTotal = parseFloat(total);
   const formattedTotal = isNaN(total) ? total : numericTotal.toFixed(2);
@@ -63,6 +65,64 @@ export default function CardCheckout({ total, items, orderId, onPaymentDataChang
       setCardError(event.error.message);
     } else {
       setCardError(null);
+    }
+  };
+
+  const handleConfirmCard = async () => {
+    if (!stripe || !elements || !paymentIntent) {
+      showErrorToast('Payment not ready');
+      return;
+    }
+
+    const cardElement = elements.getElement('card');
+    if (!cardElement) {
+      showErrorToast('Card details not entered');
+      return;
+    }
+
+    setConfirming(true);
+    setCardError(null);
+
+    try {
+      // Confirm payment intent with Stripe (but don't create payment record)
+      const { error: stripeError, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(
+        paymentIntent.clientSecret,
+        {
+          payment_method: {
+            card: cardElement,
+          },
+        }
+      );
+
+      if (stripeError) {
+        setCardError(stripeError.message || 'Payment failed');
+        return;
+      }
+
+      if (confirmedIntent.status !== 'succeeded' && confirmedIntent.status !== 'processing') {
+        setCardError(`Payment status: ${confirmedIntent.status}`);
+        return;
+      }
+
+      setIsConfirmed(true);
+      showSuccessToast('Card payment confirmed');
+
+      // Update payment data with confirmed status
+      if (onPaymentDataChange) {
+        onPaymentDataChange({
+          paymentIntentId: paymentIntent.paymentIntentId,
+          clientSecret: paymentIntent.clientSecret,
+          isConfirmed: true,
+          cashReceived: null,
+          giftCardCode: null,
+          giftCardBalance: null,
+        });
+      }
+    } catch (err) {
+      console.error('Error confirming card payment:', err);
+      setCardError(err.message || 'Failed to confirm payment');
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -171,7 +231,21 @@ export default function CardCheckout({ total, items, orderId, onPaymentDataChang
             )}
           </div>
 
-          {onPaymentDataChange && (
+          {isSplitPaymentMode && !isConfirmed && (
+            <button
+              onClick={handleConfirmCard}
+              disabled={confirming || !!cardError}
+              className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm"
+            >
+              {confirming ? 'Confirming...' : 'Confirm Card'}
+            </button>
+          )}
+          {isSplitPaymentMode && isConfirmed && (
+            <div className="mt-4 p-2 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-xs text-green-700">✓ Card payment confirmed</p>
+            </div>
+          )}
+          {onPaymentDataChange && !isSplitPaymentMode && (
             <div className="text-xs text-gray-500">
               Payment intent created. Card details ready for processing.
             </div>
