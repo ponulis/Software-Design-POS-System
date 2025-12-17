@@ -1,7 +1,9 @@
 using backend.DTOs;
 using backend.Services;
+using backend.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
@@ -76,6 +78,39 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Error during login for phone: {Phone}", request?.Phone);
             return StatusCode(500, new { message = "An error occurred during login" });
+        }
+    }
+
+    /// <summary>
+    /// Verify database has users (for debugging)
+    /// </summary>
+    [HttpGet("verify-users")]
+    [AllowAnonymous]
+    public async Task<IActionResult> VerifyUsers()
+    {
+        try
+        {
+            var authService = HttpContext.RequestServices.GetRequiredService<AuthService>();
+            var context = HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+            
+            var userCount = await context.Users.CountAsync();
+            var activeUserCount = await context.Users.CountAsync(u => u.IsActive);
+            var users = await context.Users
+                .Select(u => new { u.Id, u.Phone, u.Name, u.Role, u.IsActive })
+                .ToListAsync();
+
+            return Ok(new 
+            { 
+                userCount, 
+                activeUserCount,
+                users,
+                message = userCount == 0 ? "No users found in database. Database may need seeding." : "Users found"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying users");
+            return StatusCode(500, new { message = "An error occurred while verifying users" });
         }
     }
 }
