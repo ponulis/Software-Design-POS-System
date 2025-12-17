@@ -44,9 +44,9 @@ public class OrderValidationService
             return OrderValidationResult.Failure("Order has been cancelled. Cannot process payment.");
         }
 
-        if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Placed)
+        if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Pending && order.Status != OrderStatus.Placed)
         {
-            return OrderValidationResult.Failure($"Invalid order status: {order.Status}. Order must be Draft or Placed to process payment.");
+            return OrderValidationResult.Failure($"Invalid order status: {order.Status}. Order must be Draft, Pending, or Placed to process payment.");
         }
 
         // 2. Order Content Validation
@@ -174,8 +174,8 @@ public class OrderValidationService
             return OrderValidationResult.Failure("Order is already cancelled.");
         }
 
-        // Can cancel Draft or Placed orders
-        if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Placed)
+        // Can cancel Draft, Pending, or Placed orders
+        if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Pending && order.Status != OrderStatus.Placed)
         {
             return OrderValidationResult.Failure($"Invalid order status: {order.Status}. Cannot cancel order.");
         }
@@ -226,7 +226,8 @@ public class OrderValidationService
         // Valid transitions
         var validTransitions = new Dictionary<OrderStatus, List<OrderStatus>>
         {
-            { OrderStatus.Draft, new List<OrderStatus> { OrderStatus.Placed, OrderStatus.Cancelled } },
+            { OrderStatus.Draft, new List<OrderStatus> { OrderStatus.Pending, OrderStatus.Placed, OrderStatus.Cancelled } },
+            { OrderStatus.Pending, new List<OrderStatus> { OrderStatus.Paid, OrderStatus.Cancelled } },
             { OrderStatus.Placed, new List<OrderStatus> { OrderStatus.Paid, OrderStatus.Cancelled } },
             { OrderStatus.Paid, new List<OrderStatus>() }, // Paid is terminal (cannot transition from Paid)
             { OrderStatus.Cancelled, new List<OrderStatus>() } // Cancelled is terminal

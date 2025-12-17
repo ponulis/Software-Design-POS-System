@@ -3,6 +3,7 @@ namespace backend.Models;
 public enum OrderStatus
 {
     Draft,
+    Pending,
     Placed,
     Paid,
     Cancelled
@@ -24,7 +25,7 @@ public class Order
     public decimal Discount { get; set; }
     public decimal Tax { get; set; }
     public decimal Total => SubTotal - Discount + Tax;
-    public OrderStatus Status { get; set; } = OrderStatus.Draft;
+    public OrderStatus Status { get; set; } = OrderStatus.Pending;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

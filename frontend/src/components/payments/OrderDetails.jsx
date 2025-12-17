@@ -19,6 +19,7 @@ export default function OrderDetails({ paymentType, items, subtotal, taxes, disc
                         orderStatus === 'Paid' ? 'bg-green-100 text-green-700' :
                         orderStatus === 'Cancelled' ? 'bg-red-100 text-red-700' :
                         orderStatus === 'Placed' ? 'bg-blue-100 text-blue-700' :
+                        orderStatus === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
                         'bg-gray-100 text-gray-700'
                     }`}>
                         Status: {orderStatus}

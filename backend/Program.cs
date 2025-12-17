@@ -145,6 +145,7 @@ builder.Services.AddScoped<ProductModificationService>();
 builder.Services.AddScoped<ServiceService>();
 builder.Services.AddScoped<GiftCardService>();
 builder.Services.AddScoped<StripeService>();
+builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<AppointmentService>();
 builder.Services.AddScoped<DiscountService>();

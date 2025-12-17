@@ -97,6 +97,8 @@ export default function OrderHistory() {
         return 'bg-green-100 text-green-700';
       case 'Placed':
         return 'bg-blue-100 text-blue-700';
+      case 'Pending':
+        return 'bg-yellow-100 text-yellow-700';
       case 'Draft':
         return 'bg-gray-100 text-gray-700';
       case 'Cancelled':
@@ -156,6 +158,7 @@ export default function OrderHistory() {
               >
                 <option value="">All Statuses</option>
                 <option value="Draft">Draft</option>
+                <option value="Pending">Pending</option>
                 <option value="Placed">Placed</option>
                 <option value="Paid">Paid</option>
                 <option value="Cancelled">Cancelled</option>

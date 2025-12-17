@@ -13,6 +13,7 @@ public class PaymentService
     private readonly GiftCardService _giftCardService;
     private readonly StripeService? _stripeService;
     private readonly OrderValidationService _validationService;
+    private readonly InventoryService? _inventoryService;
     private readonly ILogger<PaymentService> _logger;
 
     public PaymentService(
@@ -22,7 +23,8 @@ public class PaymentService
         GiftCardService giftCardService,
         OrderValidationService validationService,
         ILogger<PaymentService> logger,
-        StripeService? stripeService = null)
+        StripeService? stripeService = null,
+        InventoryService? inventoryService = null)
     {
         _context = context;
         _pricingService = pricingService;
@@ -30,6 +32,7 @@ public class PaymentService
         _giftCardService = giftCardService;
         _validationService = validationService;
         _stripeService = stripeService;
+        _inventoryService = inventoryService;
         _logger = logger;
     }
 
@@ -148,23 +151,40 @@ public class PaymentService
             // Confirm the Stripe payment intent
             try
             {
-                var paymentIntent = await _stripeService.GetPaymentIntentAsync(request.TransactionId);
-
-                // Validate payment intent status
-                if (paymentIntent.Status != "succeeded" && paymentIntent.Status != "processing")
+                // Check if StripeService is in mock mode
+                if (_stripeService != null && _stripeService.IsMockMode)
                 {
-                    throw new InvalidOperationException($"Payment intent status is {paymentIntent.Status}. Payment must be succeeded or processing.");
+                    // Mock mode: create a mock payment intent
+                    var mockPaymentIntent = await _stripeService.GetMockPaymentIntentAsync(
+                        request.TransactionId, 
+                        (long)(request.Amount * 100));
+                    
+                    // In mock mode, payment always succeeds
+                    request.AuthorizationCode = mockPaymentIntent.LatestChargeId ?? mockPaymentIntent.Id;
+                    _logger.LogInformation("Mock mode: Card payment processed successfully for PaymentIntentId={PaymentIntentId}", 
+                        request.TransactionId);
                 }
-
-                // Validate payment amount matches
-                var stripeAmount = paymentIntent.Amount / 100m; // Convert from cents
-                if (Math.Abs(stripeAmount - request.Amount) > 0.01m)
+                else
                 {
-                    throw new InvalidOperationException($"Payment amount mismatch. Stripe: {stripeAmount:C}, Request: {request.Amount:C}");
-                }
+                    // Real Stripe mode
+                    var paymentIntent = await _stripeService!.GetPaymentIntentAsync(request.TransactionId);
 
-                // Store Stripe metadata
-                request.AuthorizationCode = paymentIntent.LatestChargeId ?? paymentIntent.Id;
+                    // Validate payment intent status
+                    if (paymentIntent.Status != "succeeded" && paymentIntent.Status != "processing")
+                    {
+                        throw new InvalidOperationException($"Payment intent status is {paymentIntent.Status}. Payment must be succeeded or processing.");
+                    }
+
+                    // Validate payment amount matches
+                    var stripeAmount = paymentIntent.Amount / 100m; // Convert from cents
+                    if (Math.Abs(stripeAmount - request.Amount) > 0.01m)
+                    {
+                        throw new InvalidOperationException($"Payment amount mismatch. Stripe: {stripeAmount:C}, Request: {request.Amount:C}");
+                    }
+
+                    // Store Stripe metadata
+                    request.AuthorizationCode = paymentIntent.LatestChargeId ?? paymentIntent.Id;
+                }
             }
             catch (InvalidOperationException)
             {
@@ -798,6 +818,7 @@ public class PaymentService
 
     /// <summary>
     /// Update order status to Paid if total payments equal or exceed order total
+    /// Deducts inventory when order becomes fully paid
     /// </summary>
     private async Task UpdateOrderStatusIfFullyPaidAsync(Order order)
     {
@@ -808,9 +829,39 @@ public class PaymentService
         if (totalPayments >= order.Total && order.Status != OrderStatus.Paid)
         {
             var previousStatus = order.Status;
+            
+            // Load order items with products for inventory deduction
+            if (!_context.Entry(order).Collection(o => o.Items).IsLoaded)
+            {
+                await _context.Entry(order)
+                    .Collection(o => o.Items)
+                    .Query()
+                    .Include(i => i.Product)
+                    .LoadAsync();
+            }
+
             order.Status = OrderStatus.Paid;
             order.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            // Deduct inventory when order is fully paid
+            if (_inventoryService != null)
+            {
+                try
+                {
+                    await _inventoryService.DeductInventoryForOrderAsync(order);
+                    _logger.LogInformation(
+                        "Inventory deducted for OrderId={OrderId}", order.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, 
+                        "Failed to deduct inventory for OrderId={OrderId}. Order is marked as Paid but inventory was not deducted.",
+                        order.Id);
+                    // Note: We don't throw here because the payment was successful
+                    // In a production system, you might want to handle this differently
+                }
+            }
 
             // Audit logging: Log order status change to Paid
             _logger.LogInformation(
@@ -820,12 +871,12 @@ public class PaymentService
         else if (totalPayments < order.Total && order.Status == OrderStatus.Paid)
         {
             // If payments were deleted and order is no longer fully paid, revert status
-            order.Status = OrderStatus.Placed;
+            order.Status = OrderStatus.Pending;
             order.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
             _logger.LogWarning(
-                "Order payment status reverted: OrderId={OrderId}, Total={Total}, TotalPayments={TotalPayments}, Status changed from Paid to Placed",
+                "Order payment status reverted: OrderId={OrderId}, Total={Total}, TotalPayments={TotalPayments}, Status changed from Paid to Pending",
                 order.Id, order.Total, totalPayments);
         }
     }
