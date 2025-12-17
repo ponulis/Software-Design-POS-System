@@ -260,8 +260,8 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
         for (const guest of guests) {
             if (guest.paymentMethod === 'Card') {
                 const paymentData = guest.paymentData || {};
-                if (!paymentData.isConfirmed) {
-                    showErrorToast(`Card payment for Guest ${guests.indexOf(guest) + 1} must be confirmed before processing`);
+                if (!paymentData.cardDetails || !paymentData.cardDetails.isValid) {
+                    showErrorToast(`Card payment for Guest ${guests.indexOf(guest) + 1} must have valid card details`);
                     return;
                 }
             }
@@ -287,18 +287,20 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                 const paymentData = guest.paymentData || {};
 
                 if (guest.paymentMethod === 'Card') {
-                    if (!paymentData.clientSecret || !paymentData.paymentIntentId) {
-                        throw new Error(`Card payment not ready for Guest ${guests.indexOf(guest) + 1}. Please ensure card details are entered and payment intent is created.`);
-                    }
-
-                    if (!paymentData.isConfirmed) {
-                        throw new Error(`Card payment for Guest ${guests.indexOf(guest) + 1} must be confirmed before processing`);
+                    if (!paymentData.cardDetails || !paymentData.cardDetails.isValid) {
+                        throw new Error(`Card payment not ready for Guest ${guests.indexOf(guest) + 1}. Please ensure valid card details are entered.`);
                     }
 
                     splitPayments.push({
                         amount: guestTotal.total,
                         method: 'Card',
-                        paymentIntentId: paymentData.paymentIntentId
+                        cardDetails: {
+                            cardNumber: paymentData.cardDetails.cardNumber,
+                            expiryMonth: paymentData.cardDetails.expiryMonth,
+                            expiryYear: paymentData.cardDetails.expiryYear,
+                            cvv: paymentData.cardDetails.cvv,
+                            cardholderName: paymentData.cardDetails.cardholderName,
+                        }
                     });
                 } else {
                     splitPayments.push({

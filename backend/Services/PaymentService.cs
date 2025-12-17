@@ -136,64 +136,104 @@ public class PaymentService
         }
         else if (paymentMethod == PaymentMethod.Card)
         {
-            // For card payments, validate Stripe is configured
-            if (_stripeService == null)
+            // Mocked card payment: validate card details are provided
+            if (request.CardDetails != null)
             {
-                throw new InvalidOperationException("Stripe payment service is not configured");
-            }
-
-            // For card payments, TransactionId should contain PaymentIntentId
-            if (string.IsNullOrWhiteSpace(request.TransactionId))
-            {
-                throw new InvalidOperationException("PaymentIntentId (TransactionId) is required for card payments");
-            }
-
-            // Confirm the Stripe payment intent
-            try
-            {
-                // Check if StripeService is in mock mode
-                if (_stripeService != null && _stripeService.IsMockMode)
+                // Validate card details
+                if (string.IsNullOrWhiteSpace(request.CardDetails.CardNumber))
                 {
-                    // Mock mode: create a mock payment intent
-                    var mockPaymentIntent = await _stripeService.GetMockPaymentIntentAsync(
-                        request.TransactionId, 
-                        (long)(request.Amount * 100));
-                    
-                    // In mock mode, payment always succeeds
-                    request.AuthorizationCode = mockPaymentIntent.LatestChargeId ?? mockPaymentIntent.Id;
-                    _logger.LogInformation("Mock mode: Card payment processed successfully for PaymentIntentId={PaymentIntentId}", 
-                        request.TransactionId);
+                    throw new InvalidOperationException("Card number is required for card payments");
                 }
-                else
+                if (string.IsNullOrWhiteSpace(request.CardDetails.ExpiryMonth) || string.IsNullOrWhiteSpace(request.CardDetails.ExpiryYear))
                 {
-                    // Real Stripe mode
-                    var paymentIntent = await _stripeService!.GetPaymentIntentAsync(request.TransactionId);
+                    throw new InvalidOperationException("Card expiry date is required for card payments");
+                }
+                if (string.IsNullOrWhiteSpace(request.CardDetails.Cvv))
+                {
+                    throw new InvalidOperationException("CVV is required for card payments");
+                }
 
-                    // Validate payment intent status
-                    if (paymentIntent.Status != "succeeded" && paymentIntent.Status != "processing")
+                // Mock mode: Always accept card payment
+                // Following the flow diagram: Validate card details → Check available funds → Authorize transaction
+                // In mock mode, we always succeed
+                _logger.LogInformation(
+                    "Mock card payment: Validating card details for OrderId={OrderId}, Amount={Amount}, CardNumber={CardNumberMasked}",
+                    request.OrderId, request.Amount, MaskCardNumber(request.CardDetails.CardNumber));
+
+                // Simulate validation delay
+                await Task.Delay(100);
+
+                // Mock: Always authorize the transaction
+                var mockTransactionId = $"txn_mock_{Guid.NewGuid():N}";
+                var mockAuthorizationCode = $"auth_mock_{Guid.NewGuid():N}";
+                
+                request.TransactionId = mockTransactionId;
+                request.AuthorizationCode = mockAuthorizationCode;
+                
+                _logger.LogInformation(
+                    "Mock card payment: Payment authorized successfully. TransactionId={TransactionId}, AuthorizationCode={AuthorizationCode}",
+                    mockTransactionId, mockAuthorizationCode);
+            }
+            // Legacy Stripe payment flow (for backward compatibility)
+            else if (!string.IsNullOrWhiteSpace(request.TransactionId))
+            {
+                // For card payments, validate Stripe is configured
+                if (_stripeService == null)
+                {
+                    throw new InvalidOperationException("Stripe payment service is not configured");
+                }
+
+                // Confirm the Stripe payment intent
+                try
+                {
+                    // Check if StripeService is in mock mode
+                    if (_stripeService != null && _stripeService.IsMockMode)
                     {
-                        throw new InvalidOperationException($"Payment intent status is {paymentIntent.Status}. Payment must be succeeded or processing.");
+                        // Mock mode: create a mock payment intent
+                        var mockPaymentIntent = await _stripeService.GetMockPaymentIntentAsync(
+                            request.TransactionId, 
+                            (long)(request.Amount * 100));
+                        
+                        // In mock mode, payment always succeeds
+                        request.AuthorizationCode = mockPaymentIntent.LatestChargeId ?? mockPaymentIntent.Id;
+                        _logger.LogInformation("Mock mode: Card payment processed successfully for PaymentIntentId={PaymentIntentId}", 
+                            request.TransactionId);
                     }
-
-                    // Validate payment amount matches
-                    var stripeAmount = paymentIntent.Amount / 100m; // Convert from cents
-                    if (Math.Abs(stripeAmount - request.Amount) > 0.01m)
+                    else
                     {
-                        throw new InvalidOperationException($"Payment amount mismatch. Stripe: {stripeAmount:C}, Request: {request.Amount:C}");
-                    }
+                        // Real Stripe mode
+                        var paymentIntent = await _stripeService!.GetPaymentIntentAsync(request.TransactionId);
 
-                    // Store Stripe metadata
-                    request.AuthorizationCode = paymentIntent.LatestChargeId ?? paymentIntent.Id;
+                        // Validate payment intent status
+                        if (paymentIntent.Status != "succeeded" && paymentIntent.Status != "processing")
+                        {
+                            throw new InvalidOperationException($"Payment intent status is {paymentIntent.Status}. Payment must be succeeded or processing.");
+                        }
+
+                        // Validate payment amount matches
+                        var stripeAmount = paymentIntent.Amount / 100m; // Convert from cents
+                        if (Math.Abs(stripeAmount - request.Amount) > 0.01m)
+                        {
+                            throw new InvalidOperationException($"Payment amount mismatch. Stripe: {stripeAmount:C}, Request: {request.Amount:C}");
+                        }
+
+                        // Store Stripe metadata
+                        request.AuthorizationCode = paymentIntent.LatestChargeId ?? paymentIntent.Id;
+                    }
+                }
+                catch (InvalidOperationException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing Stripe payment");
+                    throw new InvalidOperationException($"Card payment failed: {ex.Message}");
                 }
             }
-            catch (InvalidOperationException)
+            else
             {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing Stripe payment");
-                throw new InvalidOperationException($"Card payment failed: {ex.Message}");
+                throw new InvalidOperationException("Either CardDetails or PaymentIntentId (TransactionId) is required for card payments");
             }
         }
         else if (paymentMethod == PaymentMethod.GiftCard)
@@ -383,7 +423,8 @@ public class PaymentService
                     Method = splitPayment.Method,
                     CashReceived = splitPayment.CashReceived,
                     GiftCardCode = splitPayment.GiftCardCode,
-                    TransactionId = splitPayment.PaymentIntentId
+                    TransactionId = splitPayment.PaymentIntentId, // Legacy Stripe support
+                    CardDetails = splitPayment.CardDetails // Mocked card payment support
                 };
 
                 // Create the payment
@@ -919,5 +960,19 @@ public class PaymentService
             TransactionId = payment.Method == PaymentMethod.Cash ? null : payment.TransactionId,
             AuthorizationCode = payment.Method == PaymentMethod.Cash ? null : payment.AuthorizationCode
         };
+    }
+
+    /// <summary>
+    /// Mask card number for logging (show only last 4 digits)
+    /// </summary>
+    private static string MaskCardNumber(string cardNumber)
+    {
+        if (string.IsNullOrWhiteSpace(cardNumber) || cardNumber.Length < 4)
+        {
+            return "****";
+        }
+        
+        var last4 = cardNumber.Substring(cardNumber.Length - 4);
+        return $"****{last4}";
     }
 }

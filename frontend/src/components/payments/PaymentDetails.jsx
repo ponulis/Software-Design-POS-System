@@ -4,8 +4,6 @@ import OrderDetails from "./OrderDetails";
 import CheckoutDetails from "./CheckoutDetails";
 import SplitPayment from "./SplitPayment";
 import ReceiptModal from "../receipts/ReceiptModal";
-import StripeProvider from "../stripe/StripeProvider";
-import CardPaymentHandler from "./CardPaymentHandler";
 import { ordersApi } from "../../api/orders";
 import { paymentsApi } from "../../api/payments";
 import { useToast } from "../../context/ToastContext";
@@ -20,12 +18,12 @@ export default function PaymentDetails({ order }) {
     cashReceived: null,
     giftCardCode: null,
     giftCardBalance: null,
+    cardDetails: null,
     paymentIntentId: null,
     clientSecret: null,
   });
   const [processing, setProcessing] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
-  const [cardPaymentHandler, setCardPaymentHandler] = useState(null);
   const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   // Fetch full order details if order ID is provided
@@ -148,17 +146,8 @@ export default function PaymentDetails({ order }) {
     } else if (selectedPaymentType === 'Card') {
       // Business Flow: Card Payment Processing
       // Step 1: Validate card details are entered
-      if (!paymentData.paymentIntentId || !paymentData.clientSecret) {
-        showErrorToast('Please wait for payment to initialize');
-        return;
-      }
-      if (!cardPaymentHandler) {
-        showErrorToast('Card payment handler not ready. Please wait.');
-        return;
-      }
-      // Step 2: Card should be confirmed (validated, funds checked, authorized)
-      if (!paymentData.isConfirmed) {
-        showErrorToast('Please confirm the card payment before processing');
+      if (!paymentData.cardDetails || !paymentData.cardDetails.isValid) {
+        showErrorToast('Please enter valid card details');
         return;
       }
     }
@@ -171,31 +160,26 @@ export default function PaymentDetails({ order }) {
     try {
       let payment;
 
-      if (selectedPaymentType === 'Card') {
-        // Business Flow: Card Payment Processing
-        // Step 3: Confirm payment (already validated card details, checked funds, authorized)
-        // Step 4: Create payment record
-        if (!cardPaymentHandler || !paymentData.clientSecret) {
-          throw new Error('Card payment not ready. Please wait for initialization.');
-        }
+      // Business Flow: Card Payment Processing
+      // Step 2: Employee notifies system to process card
+      // Step 3: System validates card details, checks available funds, and authorizes transaction
+      // Step 4: Create payment record
+      const paymentRequest = {
+        orderId: orderDetails.id,
+        amount: numericTotal,
+        method: selectedPaymentType === 'Gift Card' ? 'GiftCard' : selectedPaymentType,
+        cashReceived: selectedPaymentType === 'Cash' ? paymentData.cashReceived : null,
+        giftCardCode: selectedPaymentType === 'Gift Card' ? paymentData.giftCardCode : null,
+        cardDetails: selectedPaymentType === 'Card' ? {
+          cardNumber: paymentData.cardDetails.cardNumber,
+          expiryMonth: paymentData.cardDetails.expiryMonth,
+          expiryYear: paymentData.cardDetails.expiryYear,
+          cvv: paymentData.cardDetails.cvv,
+          cardholderName: paymentData.cardDetails.cardholderName,
+        } : null,
+      };
 
-        payment = await cardPaymentHandler.confirmPayment(
-          paymentData.clientSecret,
-          orderDetails.id,
-          paymentData.paymentIntentId
-        );
-      } else {
-        // For Cash and Gift Card, use direct payment API
-        const paymentRequest = {
-          orderId: orderDetails.id,
-          amount: numericTotal,
-          method: selectedPaymentType === 'Gift Card' ? 'GiftCard' : selectedPaymentType,
-          cashReceived: selectedPaymentType === 'Cash' ? paymentData.cashReceived : null,
-          giftCardCode: selectedPaymentType === 'Gift Card' ? paymentData.giftCardCode : null,
-        };
-
-        payment = await paymentsApi.create(paymentRequest);
-      }
+      payment = await paymentsApi.create(paymentRequest);
 
       // Business Flow: Payment Authorization Success
       // Step 5: Payment successful - provide receipt
@@ -215,6 +199,7 @@ export default function PaymentDetails({ order }) {
         cashReceived: null,
         giftCardCode: null,
         giftCardBalance: null,
+        cardDetails: null,
         paymentIntentId: null,
         clientSecret: null,
       });
@@ -310,27 +295,22 @@ export default function PaymentDetails({ order }) {
                 orderStatus={orderDetails.status}
               />
               
-              {/* Always render StripeProvider and CardPaymentHandler to maintain consistent hook order */}
-              <StripeProvider>
-                <CardPaymentHandler onPaymentReady={setCardPaymentHandler}>
-                  <CheckoutDetails 
-                    paymentType={selectedPaymentType} 
-                    total={total} 
-                    items={items} 
-                    orderId={orderDetails.id}
-                    onPaymentDataChange={handlePaymentDataChange}
-                  />
-                  
-                  <div className="flex flex-row gap-8 rounded-full justify-end w-full">
-                    <PaymentButton isImportant={false} onClick={handleCancelPayment} disabled={processing}>
-                      CANCEL PAYMENT
-                    </PaymentButton>
-                    <PaymentButton isImportant={true} onClick={handleProcessPayment} disabled={processing}>
-                      {processing ? 'PROCESSING...' : 'PROCESS PAYMENT'}
-                    </PaymentButton>
-                  </div>
-                </CardPaymentHandler>
-              </StripeProvider>
+              <CheckoutDetails 
+                paymentType={selectedPaymentType} 
+                total={total} 
+                items={items} 
+                orderId={orderDetails.id}
+                onPaymentDataChange={handlePaymentDataChange}
+              />
+              
+              <div className="flex flex-row gap-8 rounded-full justify-end w-full">
+                <PaymentButton isImportant={false} onClick={handleCancelPayment} disabled={processing}>
+                  CANCEL PAYMENT
+                </PaymentButton>
+                <PaymentButton isImportant={true} onClick={handleProcessPayment} disabled={processing}>
+                  {processing ? 'PROCESSING...' : 'PROCESS PAYMENT'}
+                </PaymentButton>
+              </div>
             </>
           ) : (
             <>

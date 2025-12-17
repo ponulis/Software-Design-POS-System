@@ -1,161 +1,57 @@
-import React, { useState, useEffect } from "react";
-import { useStripe, useElements, CardElement } from "@stripe/react-stripe-js";
-import { stripeApi } from "../../api/stripe";
+import React, { useState } from "react";
 import { useToast } from "../../context/ToastContext";
 import SplitPayment from "./SplitPayment";
+import CardDetailsInput from "./CardDetailsInput";
 
 export default function CardCheckout({ total, items, orderId, onPaymentDataChange, isSplitPaymentMode = false }) {
-  const stripe = useStripe();
-  const elements = useElements();
   const { error: showErrorToast, success: showSuccessToast } = useToast();
   
   const [isSplitPaymentEnabled, setIsSplitPaymentEnabled] = useState(false);
-  const [paymentIntent, setPaymentIntent] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [confirming, setConfirming] = useState(false);
+  const [cardDetails, setCardDetails] = useState(null);
   const [cardError, setCardError] = useState(null);
-  const [isConfirmed, setIsConfirmed] = useState(false);
 
   const numericTotal = parseFloat(total);
   const formattedTotal = isNaN(total) ? total : numericTotal.toFixed(2);
 
-  // Create payment intent when component mounts or orderId changes
-  useEffect(() => {
-    if (orderId && !isSplitPaymentEnabled && !paymentIntent && stripe && elements) {
-      createPaymentIntent();
-    }
-  }, [orderId, isSplitPaymentEnabled, stripe, elements]);
-
-  const createPaymentIntent = async () => {
-    if (!orderId) return;
-
-    try {
-      setLoading(true);
-      setCardError(null);
-      
-      const response = await stripeApi.createPaymentIntent({
-        orderId: orderId,
-        amount: numericTotal,
-        currency: 'eur', // EUR for European businesses
-      });
-
-      setPaymentIntent(response);
-      
-      // Notify parent component
-      // Notify parent component
-      if (onPaymentDataChange) {
-        onPaymentDataChange({
-          paymentIntentId: response.paymentIntentId,
-          clientSecret: response.clientSecret,
-          cashReceived: null,
-          giftCardCode: null,
-          giftCardBalance: null,
-        });
-      }
-    } catch (err) {
-      console.error('Error creating payment intent:', err);
-      setCardError(err.response?.data?.message || 'Failed to initialize payment');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCardChange = (event) => {
-    if (event.error) {
-      setCardError(event.error.message);
-    } else {
-      setCardError(null);
-    }
-  };
-
-  const handleConfirmCard = async () => {
-    // Business Flow: Card Payment Processing
-    // Step 1: Validate card details are entered (Customer inserts/swipes card)
-    if (!stripe || !elements || !paymentIntent) {
-      showErrorToast('Payment not ready');
-      return;
-    }
-
-    const cardElement = elements.getElement('card');
-    if (!cardElement) {
-      showErrorToast('Card details not entered');
-      return;
-    }
-
-    setConfirming(true);
+  // Handle card details change from CardDetailsInput component
+  const handleCardDetailsChange = (details) => {
+    setCardDetails(details);
     setCardError(null);
 
-    try {
-      // Business Flow: Card Payment Processing
-      // Step 2: Employee notifies system to process card
-      // Step 3: System validates card details, checks available funds, and authorizes transaction
-      // (Stripe handles: validate card details → check available funds → authorize transaction)
-      const { error: stripeError, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(
-        paymentIntent.clientSecret,
-        {
-          payment_method: {
-            card: cardElement,
-          },
-        }
-      );
-
-      // Business Flow: Payment Authorization Failure
-      if (stripeError) {
-        setCardError(stripeError.message || 'Payment failed');
-        return;
-      }
-
-      // Business Flow: Payment Authorization Success
-      if (confirmedIntent.status !== 'succeeded' && confirmedIntent.status !== 'processing') {
-        setCardError(`Payment status: ${confirmedIntent.status}`);
-        return;
-      }
-
-      setIsConfirmed(true);
-      showSuccessToast('Card payment confirmed and authorized');
-
-      // Update payment data with confirmed status (ready for payment record creation)
-      if (onPaymentDataChange) {
-        onPaymentDataChange({
-          paymentIntentId: paymentIntent.paymentIntentId,
-          clientSecret: paymentIntent.clientSecret,
-          isConfirmed: true,
-          cashReceived: null,
-          giftCardCode: null,
-          giftCardBalance: null,
-        });
-      }
-    } catch (err) {
-      console.error('Error confirming card payment:', err);
-      setCardError(err.message || 'Failed to confirm payment');
-    } finally {
-      setConfirming(false);
+    // Notify parent component when card details are valid
+    if (onPaymentDataChange && details.isValid) {
+      onPaymentDataChange({
+        cardDetails: {
+          cardNumber: details.cardNumber,
+          expiryMonth: details.expiryMonth,
+          expiryYear: details.expiryYear,
+          cvv: details.cvv,
+          cardholderName: details.cardholderName,
+        },
+        cashReceived: null,
+        giftCardCode: null,
+        giftCardBalance: null,
+        paymentIntentId: null,
+        clientSecret: null,
+      });
+    } else if (onPaymentDataChange && !details.isValid) {
+      // Clear payment data if card details are invalid
+      onPaymentDataChange({
+        cardDetails: null,
+        cashReceived: null,
+        giftCardCode: null,
+        giftCardBalance: null,
+        paymentIntentId: null,
+        clientSecret: null,
+      });
     }
   };
 
   const handleSplitToggle = (e) => {
     setIsSplitPaymentEnabled(e.target.checked);
     if (e.target.checked) {
-      setPaymentIntent(null);
-    } else {
-      createPaymentIntent();
+      setCardDetails(null);
     }
-  };
-
-  const cardElementOptions = {
-    style: {
-      base: {
-        fontSize: '16px',
-        color: '#424770',
-        '::placeholder': {
-          color: '#aab7c4',
-        },
-      },
-      invalid: {
-        color: '#9e2146',
-      },
-    },
-    hidePostalCode: false,
   };
 
   if (isSplitPaymentEnabled) {
@@ -212,65 +108,20 @@ export default function CardCheckout({ total, items, orderId, onPaymentDataChang
         </p>
       </div>
 
-      {!stripe || !elements ? (
-        <div className="p-4 border border-yellow-300 rounded-lg bg-yellow-50">
-          <p className="text-sm text-yellow-800">
-            Loading Stripe payment system...
-          </p>
+      <div className="space-y-4">
+        <div className="p-4 border border-gray-300 rounded-lg bg-white">
+          <CardDetailsInput onCardDetailsChange={handleCardDetailsChange} />
+          {cardError && (
+            <p className="mt-2 text-sm text-red-600">{cardError}</p>
+          )}
         </div>
-      ) : loading ? (
-        <div className="flex items-center justify-center p-8">
-          <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-sm text-gray-600">Setting up payment...</span>
-        </div>
-      ) : paymentIntent ? (
-        <div className="space-y-4">
-          <div className="p-4 border border-gray-300 rounded-lg bg-white">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Card Details
-            </label>
-            <CardElement
-              options={cardElementOptions}
-              onChange={handleCardChange}
-            />
-            {cardError && (
-              <p className="mt-2 text-sm text-red-600">{cardError}</p>
-            )}
-          </div>
 
-          {isSplitPaymentMode && !isConfirmed && (
-            <button
-              onClick={handleConfirmCard}
-              disabled={confirming || !!cardError}
-              className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm"
-            >
-              {confirming ? 'Confirming...' : 'Confirm Card'}
-            </button>
-          )}
-          {isSplitPaymentMode && isConfirmed && (
-            <div className="mt-4 p-2 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-xs text-green-700">✓ Card payment confirmed</p>
-            </div>
-          )}
-          {onPaymentDataChange && !isSplitPaymentMode && (
-            <div className="text-xs text-gray-500">
-              Payment intent created. Card details ready for processing.
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="p-4 border border-yellow-300 rounded-lg bg-yellow-50">
-          <p className="text-sm text-yellow-800">
-            Unable to initialize payment. Please try again.
-          </p>
-          <button
-            onClick={createPaymentIntent}
-            className="mt-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition text-sm"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+        {cardDetails && cardDetails.isValid && (
+          <div className="mt-4 p-2 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-xs text-green-700">✓ Card details entered. Ready to process payment.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
