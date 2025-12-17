@@ -6,8 +6,8 @@ export default defineConfig({
   server: {
     port: 5173,
     headers: {
-      // More permissive CSP for development - allows backend API and Stripe
-      'Content-Security-Policy': "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://r.stripe.com; connect-src 'self' http://localhost:5168 http://localhost:* ws://localhost:* https://api.stripe.com https://r.stripe.com; frame-src https://js.stripe.com https://hooks.stripe.com;"
+      // More permissive CSP for development - allows backend API
+      'Content-Security-Policy': "script-src 'self' 'unsafe-eval' 'unsafe-inline'; connect-src 'self' http://localhost:5168 http://localhost:* ws://localhost:*;"
     }
   }
 });

@@ -16,6 +16,6 @@ public class RefundPaymentResponse
     public int PaymentId { get; set; }
     public string PaymentMethod { get; set; } = string.Empty;
     public decimal RefundedAmount { get; set; }
-    public string? RefundTransactionId { get; set; } // Stripe refund ID or other transaction ID
+    public string? RefundTransactionId { get; set; } // Refund transaction ID (if applicable)
     public string Status { get; set; } = string.Empty; // "Success", "Failed", "Pending"
 }

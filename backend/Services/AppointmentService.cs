@@ -439,7 +439,7 @@ public class AppointmentService
                 order.Status = OrderStatus.Cancelled;
                 order.UpdatedAt = DateTime.UtcNow;
                 
-                // Note: Actual refund processing (reversing payments, Stripe refunds, gift card credits)
+                // Note: Actual refund processing (reversing payments, gift card credits)
                 // should be handled by a separate refund endpoint/service
                 // This marks the order as cancelled to indicate refund is needed
             }

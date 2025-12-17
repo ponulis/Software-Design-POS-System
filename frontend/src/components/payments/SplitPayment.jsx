@@ -4,7 +4,6 @@ import PaymentButton from "./PaymentButton";
 import CashCheckout from "./CashCheckout";
 import GiftCardCheckout from "./GiftCardCheckout";
 import CardCheckout from "./CardCheckout";
-import StripeProvider from "../stripe/StripeProvider";
 import { paymentsApi } from "../../api/payments";
 import { useToast } from "../../context/ToastContext";
 import { getErrorMessage } from "../../utils/errorHandler";
@@ -260,8 +259,8 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
         for (const guest of guests) {
             if (guest.paymentMethod === 'Card') {
                 const paymentData = guest.paymentData || {};
-                if (!paymentData.isConfirmed) {
-                    showErrorToast(`Card payment for Guest ${guests.indexOf(guest) + 1} must be confirmed before processing`);
+                if (!paymentData.cardDetails || !paymentData.cardDetails.isValid) {
+                    showErrorToast(`Card payment for Guest ${guests.indexOf(guest) + 1} must have valid card details`);
                     return;
                 }
             }
@@ -278,27 +277,29 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
             const splitPayments = [];
 
             // Business Flow: Card Payment Processing
-            // Step 1: Validate card details (already done via confirmation)
-            // Step 2: Check available funds (handled by Stripe)
-            // Step 3: Authorize transaction (handled by Stripe confirmation)
+            // Step 1: Validate card details (already done)
+            // Step 2: Check available funds (mocked - always succeeds)
+            // Step 3: Authorize transaction (mocked - always succeeds)
             // Step 4: Create payment records
             for (const guest of guests) {
                 const guestTotal = guestTotals[guest.id];
                 const paymentData = guest.paymentData || {};
 
                 if (guest.paymentMethod === 'Card') {
-                    if (!paymentData.clientSecret || !paymentData.paymentIntentId) {
-                        throw new Error(`Card payment not ready for Guest ${guests.indexOf(guest) + 1}. Please ensure card details are entered and payment intent is created.`);
-                    }
-
-                    if (!paymentData.isConfirmed) {
-                        throw new Error(`Card payment for Guest ${guests.indexOf(guest) + 1} must be confirmed before processing`);
+                    if (!paymentData.cardDetails || !paymentData.cardDetails.isValid) {
+                        throw new Error(`Card payment not ready for Guest ${guests.indexOf(guest) + 1}. Please ensure valid card details are entered.`);
                     }
 
                     splitPayments.push({
                         amount: guestTotal.total,
                         method: 'Card',
-                        paymentIntentId: paymentData.paymentIntentId
+                        cardDetails: {
+                            cardNumber: paymentData.cardDetails.cardNumber,
+                            expiryMonth: paymentData.cardDetails.expiryMonth,
+                            expiryYear: paymentData.cardDetails.expiryYear,
+                            cvv: paymentData.cardDetails.cvv,
+                            cardholderName: paymentData.cardDetails.cardholderName,
+                        }
                     });
                 } else {
                     splitPayments.push({
@@ -522,7 +523,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                             </div>
 
                             {guest.paymentMethod && paymentStatus !== 'paid' && (
-                                <StripeProvider>
+                                <>
                                     {guest.paymentMethod === 'Cash' && (
                                         <CashCheckout
                                             total={guestTotal.total}
@@ -551,7 +552,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                                             }
                                         />
                                     )}
-                                </StripeProvider>
+                                </>
                             )}
                         </div>
                     </div>

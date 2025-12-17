@@ -13,5 +13,6 @@ public class SplitPaymentItem
     public List<int>? OrderItemIds { get; set; } // Optional: specific order items this payment covers
     public decimal? CashReceived { get; set; } // Required for cash payments
     public string? GiftCardCode { get; set; } // Required for gift card payments
-    public string? PaymentIntentId { get; set; } // Required for card payments (Stripe PaymentIntent ID)
+    public string? PaymentIntentId { get; set; } // Legacy: Not used for mocked card payments
+    public CardDetails? CardDetails { get; set; } // Required for mocked card payments
 }
