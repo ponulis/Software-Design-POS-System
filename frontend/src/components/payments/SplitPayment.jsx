@@ -4,7 +4,6 @@ import PaymentButton from "./PaymentButton";
 import CashCheckout from "./CashCheckout";
 import GiftCardCheckout from "./GiftCardCheckout";
 import CardCheckout from "./CardCheckout";
-import StripeProvider from "../stripe/StripeProvider";
 import { paymentsApi } from "../../api/payments";
 import { useToast } from "../../context/ToastContext";
 import { getErrorMessage } from "../../utils/errorHandler";
@@ -278,9 +277,9 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
             const splitPayments = [];
 
             // Business Flow: Card Payment Processing
-            // Step 1: Validate card details (already done via confirmation)
-            // Step 2: Check available funds (handled by Stripe)
-            // Step 3: Authorize transaction (handled by Stripe confirmation)
+            // Step 1: Validate card details (already done)
+            // Step 2: Check available funds (mocked - always succeeds)
+            // Step 3: Authorize transaction (mocked - always succeeds)
             // Step 4: Create payment records
             for (const guest of guests) {
                 const guestTotal = guestTotals[guest.id];
@@ -524,7 +523,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                             </div>
 
                             {guest.paymentMethod && paymentStatus !== 'paid' && (
-                                <StripeProvider>
+                                <>
                                     {guest.paymentMethod === 'Cash' && (
                                         <CashCheckout
                                             total={guestTotal.total}
@@ -553,7 +552,7 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                                             }
                                         />
                                     )}
-                                </StripeProvider>
+                                </>
                             )}
                         </div>
                     </div>

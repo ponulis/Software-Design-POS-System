@@ -11,7 +11,6 @@ public class PaymentService
     private readonly PricingService _pricingService;
     private readonly OrderService _orderService;
     private readonly GiftCardService _giftCardService;
-    private readonly StripeService? _stripeService;
     private readonly OrderValidationService _validationService;
     private readonly InventoryService? _inventoryService;
     private readonly ILogger<PaymentService> _logger;
@@ -23,7 +22,6 @@ public class PaymentService
         GiftCardService giftCardService,
         OrderValidationService validationService,
         ILogger<PaymentService> logger,
-        StripeService? stripeService = null,
         InventoryService? inventoryService = null)
     {
         _context = context;
@@ -31,7 +29,6 @@ public class PaymentService
         _orderService = orderService;
         _giftCardService = giftCardService;
         _validationService = validationService;
-        _stripeService = stripeService;
         _inventoryService = inventoryService;
         _logger = logger;
     }
@@ -174,66 +171,9 @@ public class PaymentService
                     "Mock card payment: Payment authorized successfully. TransactionId={TransactionId}, AuthorizationCode={AuthorizationCode}",
                     mockTransactionId, mockAuthorizationCode);
             }
-            // Legacy Stripe payment flow (for backward compatibility)
-            else if (!string.IsNullOrWhiteSpace(request.TransactionId))
-            {
-                // For card payments, validate Stripe is configured
-                if (_stripeService == null)
-                {
-                    throw new InvalidOperationException("Stripe payment service is not configured");
-                }
-
-                // Confirm the Stripe payment intent
-                try
-                {
-                    // Check if StripeService is in mock mode
-                    if (_stripeService != null && _stripeService.IsMockMode)
-                    {
-                        // Mock mode: create a mock payment intent
-                        var mockPaymentIntent = await _stripeService.GetMockPaymentIntentAsync(
-                            request.TransactionId, 
-                            (long)(request.Amount * 100));
-                        
-                        // In mock mode, payment always succeeds
-                        request.AuthorizationCode = mockPaymentIntent.LatestChargeId ?? mockPaymentIntent.Id;
-                        _logger.LogInformation("Mock mode: Card payment processed successfully for PaymentIntentId={PaymentIntentId}", 
-                            request.TransactionId);
-                    }
-                    else
-                    {
-                        // Real Stripe mode
-                        var paymentIntent = await _stripeService!.GetPaymentIntentAsync(request.TransactionId);
-
-                        // Validate payment intent status
-                        if (paymentIntent.Status != "succeeded" && paymentIntent.Status != "processing")
-                        {
-                            throw new InvalidOperationException($"Payment intent status is {paymentIntent.Status}. Payment must be succeeded or processing.");
-                        }
-
-                        // Validate payment amount matches
-                        var stripeAmount = paymentIntent.Amount / 100m; // Convert from cents
-                        if (Math.Abs(stripeAmount - request.Amount) > 0.01m)
-                        {
-                            throw new InvalidOperationException($"Payment amount mismatch. Stripe: {stripeAmount:C}, Request: {request.Amount:C}");
-                        }
-
-                        // Store Stripe metadata
-                        request.AuthorizationCode = paymentIntent.LatestChargeId ?? paymentIntent.Id;
-                    }
-                }
-                catch (InvalidOperationException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error processing Stripe payment");
-                    throw new InvalidOperationException($"Card payment failed: {ex.Message}");
-                }
-            }
             else
             {
-                throw new InvalidOperationException("Either CardDetails or PaymentIntentId (TransactionId) is required for card payments");
+                throw new InvalidOperationException("CardDetails is required for card payments");
             }
         }
         else if (paymentMethod == PaymentMethod.GiftCard)
@@ -293,7 +233,7 @@ public class PaymentService
     /// </summary>
     private async Task ValidatePaymentUniquenessAsync(CreatePaymentRequest request, PaymentMethod paymentMethod, int orderId)
     {
-        // For card payments, check if PaymentIntentId (TransactionId) was already used
+        // For card payments, check if TransactionId was already used
         if (paymentMethod == PaymentMethod.Card && !string.IsNullOrWhiteSpace(request.TransactionId))
         {
             var existingCardPayment = await _context.Payments
@@ -304,7 +244,7 @@ public class PaymentService
 
             if (existingCardPayment != null)
             {
-                throw new InvalidOperationException($"Payment with PaymentIntentId '{request.TransactionId}' already exists for this order. Duplicate payment prevented.");
+                throw new InvalidOperationException($"Payment with TransactionId '{request.TransactionId}' already exists for this order. Duplicate payment prevented.");
             }
         }
 
@@ -329,7 +269,7 @@ public class PaymentService
     }
 
     /// <summary>
-    /// Get order for payment validation (used by Stripe controller)
+    /// Get order for payment validation
     /// </summary>
     public async Task<Order?> GetOrderForPaymentAsync(int orderId, int businessId)
     {
@@ -423,7 +363,7 @@ public class PaymentService
                     Method = splitPayment.Method,
                     CashReceived = splitPayment.CashReceived,
                     GiftCardCode = splitPayment.GiftCardCode,
-                    TransactionId = splitPayment.PaymentIntentId, // Legacy Stripe support
+                    TransactionId = splitPayment.PaymentIntentId, // Legacy support (not used for mocked card payments)
                     CardDetails = splitPayment.CardDetails // Mocked card payment support
                 };
 
@@ -744,37 +684,11 @@ public class PaymentService
                 switch (payment.Method)
                 {
                     case PaymentMethod.Card:
-                        // Process Stripe refund
-                        if (_stripeService != null && !string.IsNullOrEmpty(payment.TransactionId))
-                        {
-                            try
-                            {
-                                var stripeRefund = await _stripeService.CreateRefundAsync(
-                                    payment.TransactionId,
-                                    paymentRefundAmount,
-                                    request.Reason);
-
-                                refundPayment.RefundTransactionId = stripeRefund.Id;
-                                refundPayment.Status = "Success";
-                                
-                                _logger.LogInformation(
-                                    "Stripe refund processed: PaymentId={PaymentId}, RefundId={RefundId}, Amount={Amount}",
-                                    payment.Id, stripeRefund.Id, paymentRefundAmount);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to process Stripe refund for PaymentId={PaymentId}", payment.Id);
-                                refundPayment.Status = "Failed";
-                                throw new InvalidOperationException($"Failed to process Stripe refund: {ex.Message}");
-                            }
-                        }
-                        else
-                        {
-                            refundPayment.Status = "Pending"; // Manual refund required
-                            _logger.LogWarning(
-                                "Card payment refund requires manual processing: PaymentId={PaymentId}, TransactionId={TransactionId}",
-                                payment.Id, payment.TransactionId);
-                        }
+                        // Card refund - manual processing required (mocked card payments)
+                        refundPayment.Status = "Success";
+                        _logger.LogInformation(
+                            "Card payment refund recorded: PaymentId={PaymentId}, Amount={Amount}, TransactionId={TransactionId}",
+                            payment.Id, paymentRefundAmount, payment.TransactionId);
                         break;
 
                     case PaymentMethod.GiftCard:
