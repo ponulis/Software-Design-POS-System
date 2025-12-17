@@ -36,13 +36,13 @@ public class InventoryService
         {
             try
             {
-                await DeductInventoryForOrderItemAsync(orderItem.ProductId, orderItem.Quantity, order.BusinessId);
+                await DeductInventoryForOrderItemAsync(orderItem.MenuId, orderItem.Quantity, order.BusinessId);
             }
             catch (InvalidOperationException ex)
             {
-                errors.Add($"Product ID {orderItem.ProductId}: {ex.Message}");
+                errors.Add($"Product ID {orderItem.MenuId}: {ex.Message}");
                 _logger.LogError(ex, "Failed to deduct inventory for ProductId={ProductId}, Quantity={Quantity} in OrderId={OrderId}",
-                    orderItem.ProductId, orderItem.Quantity, order.Id);
+                    orderItem.MenuId, orderItem.Quantity, order.Id);
             }
         }
 
@@ -153,7 +153,7 @@ public class InventoryService
         foreach (var orderItem in order.Items)
         {
             var totalInventory = await _context.InventoryItems
-                .Where(ii => ii.ProductId == orderItem.ProductId && ii.Product.BusinessId == order.BusinessId)
+                .Where(ii => ii.ProductId == orderItem.MenuId && ii.Product.BusinessId == order.BusinessId)
                 .SumAsync(ii => ii.Quantity);
 
             if (totalInventory < orderItem.Quantity)
