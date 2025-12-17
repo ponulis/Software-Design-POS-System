@@ -23,18 +23,27 @@ public class AuthService
 
     public async Task<LoginResponse?> LoginAsync(LoginRequest request)
     {
-        // Find user by phone
-        var user = await _context.Users
+        // Find user by phone (check both active and inactive first for debugging)
+        var userWithAnyStatus = await _context.Users
             .Include(u => u.Business)
-            .FirstOrDefaultAsync(u => u.Phone == request.Phone && u.IsActive);
-
-        if (user == null)
+            .FirstOrDefaultAsync(u => u.Phone == request.Phone);
+        
+        if (userWithAnyStatus == null)
         {
-            return null; // User not found or inactive
+            return null; // User not found
         }
 
+        // Check if user is active
+        if (!userWithAnyStatus.IsActive)
+        {
+            return null; // User is inactive
+        }
+
+        var user = userWithAnyStatus;
+
         // Verify password
-        if (!VerifyPassword(request.Password, user.PasswordHash))
+        var passwordMatches = VerifyPassword(request.Password, user.PasswordHash);
+        if (!passwordMatches)
         {
             return null; // Invalid password
         }

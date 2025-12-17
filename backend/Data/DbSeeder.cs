@@ -13,9 +13,16 @@ public static class DbSeeder
         // Migrations handle database creation, this only seeds data
         
         // Check if data already exists
-        if (context.Businesses.Any())
+        // Only skip seeding if both businesses AND users exist
+        if (context.Businesses.Any() && context.Users.Any())
         {
             return; // Database already seeded
+        }
+        
+        // If businesses exist but no users, clear and re-seed users
+        if (context.Businesses.Any() && !context.Users.Any())
+        {
+            // Users might be missing, continue with seeding
         }
 
         // Hash password helper
