@@ -13,7 +13,8 @@ public static class DbSeeder
         // Migrations handle database creation, this only seeds data
         
         // Check if data already exists
-        if (context.Businesses.Any())
+        // Only skip seeding if both businesses AND users exist
+        if (context.Businesses.Any() && context.Users.Any())
         {
             return; // Database already seeded
         }
@@ -26,34 +27,49 @@ public static class DbSeeder
             return Convert.ToBase64String(hashedBytes);
         }
 
-        // Use raw SQL to handle circular dependency between Business and User
-        // First, temporarily drop FK constraint
-        try
-        {
-            context.Database.ExecuteSqlRaw("ALTER TABLE \"Businesses\" DROP CONSTRAINT IF EXISTS \"FK_Businesses_Users_OwnerId\"");
-        }
-        catch { /* Constraint might not exist */ }
-
-        // Create Business using raw SQL with temporary OwnerId = 1
-        var now = DateTime.UtcNow;
-        context.Database.ExecuteSql($@"
-            INSERT INTO ""Businesses"" (""Name"", ""Description"", ""Address"", ""ContactEmail"", ""PhoneNumber"", ""CreatedAt"", ""OwnerId"")
-            SELECT 'Sample Beauty Salon', 
-                   'A full-service beauty salon offering hair, nails, and spa services',
-                   '123 Main Street, Vilnius, Lithuania',
-                   'contact@beautysalon.com',
-                   '+370 600 00000',
-                   {now},
-                   1
-            WHERE NOT EXISTS (SELECT 1 FROM ""Businesses"" LIMIT 1)");
-
-        // Get business ID
+        // Get existing business or create new one
         var business = context.Businesses.FirstOrDefault();
+        int businessId;
+
         if (business == null)
         {
-            return; // Failed to create business
+            // No business exists, create one
+            // Use raw SQL to handle circular dependency between Business and User
+            // First, temporarily drop FK constraint
+            try
+            {
+                context.Database.ExecuteSqlRaw("ALTER TABLE \"Businesses\" DROP CONSTRAINT IF EXISTS \"FK_Businesses_Users_OwnerId\"");
+            }
+            catch { /* Constraint might not exist */ }
+
+            // Create Business using raw SQL with temporary OwnerId = 1
+            var now = DateTime.UtcNow;
+            context.Database.ExecuteSql($@"
+                INSERT INTO ""Businesses"" (""Name"", ""Description"", ""Address"", ""ContactEmail"", ""PhoneNumber"", ""CreatedAt"", ""OwnerId"")
+                SELECT 'Sample Beauty Salon', 
+                       'A full-service beauty salon offering hair, nails, and spa services',
+                       '123 Main Street, Vilnius, Lithuania',
+                       'contact@beautysalon.com',
+                       '+370 600 00000',
+                       {now},
+                       1
+                WHERE NOT EXISTS (SELECT 1 FROM ""Businesses"" LIMIT 1)");
+
+            // Get business ID
+            business = context.Businesses.FirstOrDefault();
+            if (business == null)
+            {
+                return; // Failed to create business
+            }
         }
-        var businessId = business.Id;
+        
+        businessId = business.Id;
+        
+        // Check if users already exist for this business
+        if (context.Users.Any(u => u.BusinessId == businessId))
+        {
+            return; // Users already exist for this business
+        }
 
         // Create Owner/Admin User with correct BusinessId
         var owner = new User

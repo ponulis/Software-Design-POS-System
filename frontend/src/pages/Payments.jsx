@@ -3,6 +3,7 @@ import PaymentsList from "../components/payments/PaymentsList";
 import { useOrders } from "../hooks/useOrders";
 import PaymentDetails from "../components/payments/PaymentDetails";
 import OrderCreation from "../components/orders/OrderCreation";
+import { ordersApi } from "../api/orders";
 
 export default function Payments() {
   const {
@@ -122,7 +123,20 @@ export default function Payments() {
             onCancel={() => setShowOrderCreation(false)}
           />
         ) : (
-          <PaymentDetails order={selectedOrder} />
+          <PaymentDetails 
+            order={selectedOrder} 
+            onPaymentSuccess={async () => {
+              // Refresh orders list to show updated status
+              await refreshOrders();
+              // Update selected order if it still exists
+              if (selectedOrder?.id) {
+                const updatedOrder = await ordersApi.getById(selectedOrder.id).catch(() => null);
+                if (updatedOrder) {
+                  selectOrder(updatedOrder);
+                }
+              }
+            }}
+          />
         )}
       </div>
     </div>

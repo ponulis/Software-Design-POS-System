@@ -3,13 +3,12 @@ import PaymentButton from "./PaymentButton";
 import OrderDetails from "./OrderDetails";
 import CheckoutDetails from "./CheckoutDetails";
 import SplitPayment from "./SplitPayment";
-import ReceiptModal from "../receipts/ReceiptModal";
 import { ordersApi } from "../../api/orders";
 import { paymentsApi } from "../../api/payments";
 import { useToast } from "../../context/ToastContext";
 import { getErrorMessage } from "../../utils/errorHandler";
 
-export default function PaymentDetails({ order }) {
+export default function PaymentDetails({ order, onPaymentSuccess }) {
   const [paymentMode, setPaymentMode] = useState('single'); // 'single' or 'split'
   const [selectedPaymentType, setSelectedPaymentType] = useState('Card');
   const [orderDetails, setOrderDetails] = useState(null);
@@ -23,7 +22,6 @@ export default function PaymentDetails({ order }) {
     clientSecret: null,
   });
   const [processing, setProcessing] = useState(false);
-  const [showReceipt, setShowReceipt] = useState(false);
   const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   // Fetch full order details if order ID is provided
@@ -126,6 +124,11 @@ export default function PaymentDetails({ order }) {
     // Refresh order details after split payment
     const refreshedOrder = await ordersApi.getById(orderDetails.id);
     setOrderDetails(refreshedOrder);
+    
+    // Notify parent component to refresh orders list
+    if (onPaymentSuccess) {
+      await onPaymentSuccess();
+    }
   };
 
   const handleProcessPayment = async () => {
@@ -207,9 +210,9 @@ export default function PaymentDetails({ order }) {
       const updatedOrder = await ordersApi.getById(orderDetails.id);
       setOrderDetails(updatedOrder);
       
-      // Show receipt if order is fully paid
-      if (updatedOrder.status === 'Paid') {
-        setShowReceipt(true);
+      // Notify parent component to refresh orders list
+      if (onPaymentSuccess) {
+        await onPaymentSuccess();
       }
       
       // Reset payment data
@@ -383,23 +386,9 @@ export default function PaymentDetails({ order }) {
                 ? 'Order is Cancelled'
                 : `Order cannot be processed: ${orderValidation.message || 'Invalid order state'}`}
             </p>
-            {orderDetails.status === 'Paid' && (
-              <button
-                onClick={() => setShowReceipt(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-              >
-                View Receipt
-              </button>
-            )}
           </div>
         </>
       )}
-
-      <ReceiptModal
-        isOpen={showReceipt}
-        orderId={orderDetails?.id}
-        onClose={() => setShowReceipt(false)}
-      />
     </div>
   );
 }
