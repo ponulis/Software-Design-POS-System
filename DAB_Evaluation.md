@@ -5,7 +5,7 @@
 We judge the DAB's document based on these drawbacks we found whilst creating the web app
 
 ### Backend
-* There weren't Payment (gift cards, etc) in data model.
+* There wasn't a Payment (gift cards, etc) table in data model.
 * There weren't Product Variations in data model.
 * Some fields were missing like in Business model createdat, updatedat etc.
 
