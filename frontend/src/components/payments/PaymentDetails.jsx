@@ -56,7 +56,7 @@ export default function PaymentDetails({ order }) {
       return { valid: false, message: 'No order selected' };
     }
 
-    // Validate order status (can only pay Draft or Placed orders)
+    // Validate order status (can pay Draft, Pending, or Placed orders)
     if (orderDetails.status === 'Paid') {
       return { valid: false, message: 'Order is already paid' };
     }

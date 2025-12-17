@@ -49,7 +49,7 @@ public class OrderService
             SpotId = request.SpotId,
             CreatedBy = userId,
             Status = string.IsNullOrEmpty(request.Status) 
-                ? OrderStatus.Draft 
+                ? OrderStatus.Pending 
                 : Enum.Parse<OrderStatus>(request.Status, true),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow

@@ -100,7 +100,7 @@ builder.Services.AddSwaggerGen(c =>
 
 // Add Entity Framework
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -145,6 +145,7 @@ builder.Services.AddScoped<ProductModificationService>();
 builder.Services.AddScoped<ServiceService>();
 builder.Services.AddScoped<GiftCardService>();
 builder.Services.AddScoped<StripeService>();
+builder.Services.AddScoped<InventoryService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<AppointmentService>();
 builder.Services.AddScoped<DiscountService>();

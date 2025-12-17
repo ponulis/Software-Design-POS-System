@@ -66,3 +66,20 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Database backups
+backend/Scripts/backups/
+*.bak
+*.sql.backup
+
+# Temporary seeding/debugging scripts
+*seed*.sh
+*seed*.sql
+fix-login.sh
+verify-password-hash.sh
+test-hash.cs
+create-demo-users.sh
+
+# Documentation files (markdown)
+*.md
+!README.md
+

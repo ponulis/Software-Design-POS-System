@@ -3,10 +3,22 @@ using Stripe;
 
 namespace backend.Services;
 
+/// <summary>
+/// Mock PaymentIntent for testing when Stripe is not configured
+/// </summary>
+public class MockPaymentIntent
+{
+    public string Id { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public long Amount { get; set; }
+    public string? LatestChargeId { get; set; }
+}
+
 public class StripeService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<StripeService> _logger;
+    private readonly bool _isMockMode;
 
     public StripeService(IConfiguration configuration, ILogger<StripeService> logger)
     {
@@ -17,6 +29,12 @@ public class StripeService
         if (!string.IsNullOrEmpty(secretKey))
         {
             StripeConfiguration.ApiKey = secretKey;
+            _isMockMode = false;
+        }
+        else
+        {
+            _isMockMode = true;
+            _logger.LogWarning("Stripe secret key not configured. Running in mock mode - all payments will succeed.");
         }
     }
 
@@ -25,6 +43,23 @@ public class StripeService
     /// </summary>
     public async Task<StripePaymentIntentResponse> CreatePaymentIntentAsync(CreateStripePaymentIntentRequest request)
     {
+        // Mock mode: return a mock payment intent
+        if (_isMockMode)
+        {
+            _logger.LogInformation("Mock mode: Creating mock payment intent for OrderId={OrderId}, Amount={Amount}",
+                request.OrderId, request.Amount);
+            
+            await Task.Delay(100); // Simulate async operation
+            
+            var mockPaymentIntentId = $"pi_mock_{Guid.NewGuid():N}";
+            return new StripePaymentIntentResponse
+            {
+                ClientSecret = $"pi_mock_{Guid.NewGuid():N}_secret_{Guid.NewGuid():N}",
+                PaymentIntentId = mockPaymentIntentId,
+                Status = "requires_confirmation"
+            };
+        }
+
         try
         {
             var service = new PaymentIntentService();
@@ -88,6 +123,19 @@ public class StripeService
     /// </summary>
     public async Task<PaymentIntent> GetPaymentIntentAsync(string paymentIntentId)
     {
+        // Mock mode: return a mock payment intent with succeeded status
+        if (_isMockMode)
+        {
+            _logger.LogInformation("Mock mode: Retrieving mock payment intent {PaymentIntentId}", paymentIntentId);
+            
+            await Task.Delay(50); // Simulate async operation
+            
+            // Create a mock PaymentIntent object using reflection or return a minimal object
+            // Since PaymentIntent is from Stripe SDK, we'll create a mock response
+            // For mock mode, we'll assume the payment succeeded
+            throw new InvalidOperationException("Mock mode: Use GetMockPaymentIntentAsync instead");
+        }
+
         try
         {
             var service = new PaymentIntentService();
@@ -100,6 +148,32 @@ public class StripeService
             _logger.LogError(ex, "Stripe error retrieving payment intent");
             throw new InvalidOperationException($"Failed to retrieve payment intent: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Check if service is in mock mode
+    /// </summary>
+    public bool IsMockMode => _isMockMode;
+
+    /// <summary>
+    /// Get mock payment intent for testing (used in mock mode)
+    /// </summary>
+    public async Task<MockPaymentIntent> GetMockPaymentIntentAsync(string paymentIntentId, long amountInCents)
+    {
+        if (!_isMockMode)
+        {
+            throw new InvalidOperationException("This method is only available in mock mode");
+        }
+
+        await Task.Delay(50);
+        
+        return new MockPaymentIntent
+        {
+            Id = paymentIntentId,
+            Status = "succeeded",
+            Amount = amountInCents,
+            LatestChargeId = $"ch_mock_{Guid.NewGuid():N}"
+        };
     }
 
     /// <summary>

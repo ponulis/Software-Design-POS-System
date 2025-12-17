@@ -3,6 +3,7 @@ using backend.DTOs;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using Npgsql;
 
 namespace backend.Services;
 
@@ -41,7 +42,17 @@ public class ProductService
             
             return products.Select(MapToProductResponse).ToList();
         }
-        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Message.Contains("Invalid object name"))
+        catch (PostgresException pgEx) when (pgEx.SqlState == "42P01") // Table does not exist
+        {
+            // Tables don't exist yet - return products without modifications/inventory
+            var products = await query
+                .OrderBy(p => p.Name)
+                .ToListAsync();
+            
+            return products.Select(MapToProductResponse).ToList();
+        }
+        catch (DbUpdateException dbEx) when (dbEx.InnerException?.Message.Contains("does not exist") == true || 
+                                             dbEx.InnerException?.Message.Contains("relation") == true)
         {
             // Tables don't exist yet - return products without modifications/inventory
             var products = await query
@@ -69,7 +80,17 @@ public class ProductService
 
             return product != null ? MapToProductResponse(product) : null;
         }
-        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Message.Contains("Invalid object name"))
+        catch (PostgresException pgEx) when (pgEx.SqlState == "42P01") // Table does not exist
+        {
+            // Tables don't exist yet - return product without modifications/inventory
+            var product = await _context.Products
+                .Where(p => p.Id == productId && p.BusinessId == businessId)
+                .FirstOrDefaultAsync();
+
+            return product != null ? MapToProductResponse(product) : null;
+        }
+        catch (DbUpdateException dbEx) when (dbEx.InnerException?.Message.Contains("does not exist") == true || 
+                                             dbEx.InnerException?.Message.Contains("relation") == true)
         {
             // Tables don't exist yet - return product without modifications/inventory
             var product = await _context.Products
@@ -219,7 +240,13 @@ public class ProductService
                         .ThenInclude(mv => mv.Modification)
                 .LoadAsync();
         }
-        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Message.Contains("Invalid object name"))
+        catch (PostgresException pgEx) when (pgEx.SqlState == "42P01") // Table does not exist
+        {
+            // Tables don't exist yet - product created but without modifications/inventory
+            // This is okay, the product was still created successfully
+        }
+        catch (DbUpdateException dbEx) when (dbEx.InnerException?.Message.Contains("does not exist") == true || 
+                                             dbEx.InnerException?.Message.Contains("relation") == true)
         {
             // Tables don't exist yet - product created but without modifications/inventory
             // This is okay, the product was still created successfully

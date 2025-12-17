@@ -84,7 +84,7 @@ export default function OrderCreation({ onCreateOrder, onCancel }) {
           price: item.price,
           notes: item.notes || null,
         })),
-        status: 'Draft',
+        // Status will default to 'Pending' on the backend
       };
 
       await onCreateOrder(orderData);
