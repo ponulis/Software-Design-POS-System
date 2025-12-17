@@ -172,24 +172,30 @@ export default function PaymentDetails({ order }) {
     try {
       let payment;
 
-      // Business Flow: Card Payment Processing
-      // Step 2: Employee notifies system to process card
-      // Step 3: System validates card details, checks available funds, and authorizes transaction
+      // Business Flow: Payment Processing
+      // Step 2: Employee notifies system to process payment
+      // Step 3: System validates payment details and processes transaction
       // Step 4: Create payment record
       const paymentRequest = {
         orderId: orderDetails.id,
         amount: numericTotal,
         method: selectedPaymentType === 'Gift Card' ? 'GiftCard' : selectedPaymentType,
-        cashReceived: selectedPaymentType === 'Cash' ? paymentData.cashReceived : null,
-        giftCardCode: selectedPaymentType === 'Gift Card' ? paymentData.giftCardCode : null,
-        cardDetails: selectedPaymentType === 'Card' ? {
+      };
+
+      // Add payment method specific fields
+      if (selectedPaymentType === 'Cash') {
+        paymentRequest.cashReceived = paymentData.cashReceived;
+      } else if (selectedPaymentType === 'Gift Card') {
+        paymentRequest.giftCardCode = paymentData.giftCardCode;
+      } else if (selectedPaymentType === 'Card') {
+        paymentRequest.cardDetails = {
           cardNumber: paymentData.cardDetails.cardNumber,
           expiryMonth: paymentData.cardDetails.expiryMonth,
           expiryYear: paymentData.cardDetails.expiryYear,
           cvv: paymentData.cardDetails.cvv,
           cardholderName: paymentData.cardDetails.cardholderName,
-        } : null,
-      };
+        };
+      }
 
       payment = await paymentsApi.create(paymentRequest);
 
