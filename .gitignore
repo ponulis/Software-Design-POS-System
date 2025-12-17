@@ -71,3 +71,7 @@ backend/Scripts/backups/
 *.bak
 *.sql.backup
 
+# Documentation files (markdown)
+*.md
+!README.md
+
