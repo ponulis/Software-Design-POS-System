@@ -3,6 +3,7 @@ using backend.DTOs;
 using backend.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using Npgsql;
 
 namespace backend.Services;
 
@@ -27,7 +28,13 @@ public class ProductModificationService
 
             return modifications.Select(MapToResponse).ToList();
         }
-        catch (Microsoft.Data.SqlClient.SqlException sqlEx) when (sqlEx.Message.Contains("Invalid object name"))
+        catch (PostgresException pgEx) when (pgEx.SqlState == "42P01") // Table does not exist
+        {
+            // Tables don't exist yet - return empty list
+            return new List<ProductModificationResponse>();
+        }
+        catch (DbUpdateException dbEx) when (dbEx.InnerException?.Message.Contains("does not exist") == true || 
+                                             dbEx.InnerException?.Message.Contains("relation") == true)
         {
             // Tables don't exist yet - return empty list
             return new List<ProductModificationResponse>();
