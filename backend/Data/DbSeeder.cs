@@ -35,15 +35,15 @@ public static class DbSeeder
         catch { /* Constraint might not exist */ }
 
         // Create Business using raw SQL with temporary OwnerId = 1
-        var now = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
-        context.Database.ExecuteSqlRaw($@"
+        var now = DateTime.UtcNow;
+        context.Database.ExecuteSql($@"
             INSERT INTO ""Businesses"" (""Name"", ""Description"", ""Address"", ""ContactEmail"", ""PhoneNumber"", ""CreatedAt"", ""OwnerId"")
             SELECT 'Sample Beauty Salon', 
                    'A full-service beauty salon offering hair, nails, and spa services',
                    '123 Main Street, Vilnius, Lithuania',
                    'contact@beautysalon.com',
                    '+370 600 00000',
-                   TIMESTAMP '{now}',
+                   {now},
                    1
             WHERE NOT EXISTS (SELECT 1 FROM ""Businesses"" LIMIT 1)");
 
@@ -96,9 +96,8 @@ public static class DbSeeder
         context.SaveChanges();
 
         // Now update Business.OwnerId with the actual owner.Id
-        context.Database.ExecuteSqlRaw(
-            "UPDATE \"Businesses\" SET \"OwnerId\" = {0} WHERE \"Id\" = {1}",
-            owner.Id, businessId);
+        context.Database.ExecuteSql(
+            $"UPDATE \"Businesses\" SET \"OwnerId\" = {owner.Id} WHERE \"Id\" = {businessId}");
 
         // Re-create FK constraint
         try
