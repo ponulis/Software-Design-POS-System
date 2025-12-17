@@ -30,7 +30,7 @@ public class AuthService
 
         if (user == null)
         {
-            return null; // User not found
+            return null; // User not found or inactive
         }
 
         // Verify password
