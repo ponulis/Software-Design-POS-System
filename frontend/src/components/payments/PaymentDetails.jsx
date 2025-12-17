@@ -389,12 +389,6 @@ export default function PaymentDetails({ order, onPaymentSuccess }) {
           </div>
         </>
       )}
-
-      <ReceiptModal
-        isOpen={showReceipt}
-        orderId={orderDetails?.id}
-        onClose={() => setShowReceipt(false)}
-      />
     </div>
   );
 }
