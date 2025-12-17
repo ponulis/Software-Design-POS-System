@@ -45,10 +45,29 @@ export const ordersApi = {
   },
 
   /**
-   * Cancel/delete an order
+   * Place an order (transition from Draft to Placed)
    * @param {number} orderId - Order ID
    */
-  cancel: async (orderId) => {
+  place: async (orderId) => {
+    const response = await apiClient.post(`/orders/${orderId}/place`);
+    return response.data;
+  },
+
+  /**
+   * Cancel an order (transition to Cancelled status)
+   * @param {number} orderId - Order ID
+   * @param {Object} cancelData - Optional cancellation reason
+   */
+  cancel: async (orderId, cancelData = {}) => {
+    const response = await apiClient.post(`/orders/${orderId}/cancel`, cancelData);
+    return response.data;
+  },
+
+  /**
+   * Delete an order (permanent deletion, only for non-paid orders)
+   * @param {number} orderId - Order ID
+   */
+  delete: async (orderId) => {
     const response = await apiClient.delete(`/orders/${orderId}`);
     return response.data;
   },

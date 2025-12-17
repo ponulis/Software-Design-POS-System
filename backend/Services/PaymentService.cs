@@ -12,6 +12,7 @@ public class PaymentService
     private readonly OrderService _orderService;
     private readonly GiftCardService _giftCardService;
     private readonly StripeService? _stripeService;
+    private readonly OrderValidationService _validationService;
     private readonly ILogger<PaymentService> _logger;
 
     public PaymentService(
@@ -19,6 +20,7 @@ public class PaymentService
         PricingService pricingService, 
         OrderService orderService, 
         GiftCardService giftCardService,
+        OrderValidationService validationService,
         ILogger<PaymentService> logger,
         StripeService? stripeService = null)
     {
@@ -26,6 +28,7 @@ public class PaymentService
         _pricingService = pricingService;
         _orderService = orderService;
         _giftCardService = giftCardService;
+        _validationService = validationService;
         _stripeService = stripeService;
         _logger = logger;
     }
@@ -43,10 +46,12 @@ public class PaymentService
             throw new InvalidOperationException("Order not found or doesn't belong to your business");
         }
 
-        // Validate order status (can only pay Draft or Placed orders)
-        if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Placed)
+        // Validate order for payment using comprehensive validation service
+        // Based on Section 3.1 of ORDER_MANAGEMENT_PLAN.md
+        var validation = await _validationService.ValidateOrderForPaymentAsync(request.OrderId, businessId);
+        if (!validation.IsValid)
         {
-            throw new InvalidOperationException($"Cannot create payment for order with status {order.Status}");
+            throw new InvalidOperationException(validation.ErrorMessage ?? "Order validation failed");
         }
 
         // Recalculate order totals using PricingService before creating payment
@@ -290,10 +295,11 @@ public class PaymentService
             throw new InvalidOperationException("Order not found or doesn't belong to your business");
         }
 
-        // Validate order status (can only pay Draft or Placed orders)
-        if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Placed)
+        // Validate order for payment using comprehensive validation service
+        var validation = await _validationService.ValidateOrderForPaymentAsync(request.OrderId, businessId);
+        if (!validation.IsValid)
         {
-            throw new InvalidOperationException($"Cannot create payments for order with status {order.Status}");
+            throw new InvalidOperationException(validation.ErrorMessage ?? "Order validation failed");
         }
 
         // Recalculate order totals using PricingService

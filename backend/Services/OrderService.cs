@@ -11,11 +11,16 @@ public class OrderService
 {
     private readonly ApplicationDbContext _context;
     private readonly PricingService _pricingService;
+    private readonly OrderValidationService _validationService;
 
-    public OrderService(ApplicationDbContext context, PricingService pricingService)
+    public OrderService(
+        ApplicationDbContext context, 
+        PricingService pricingService,
+        OrderValidationService validationService)
     {
         _context = context;
         _pricingService = pricingService;
+        _validationService = validationService;
     }
 
     public async Task<OrderResponse?> CreateOrderAsync(CreateOrderRequest request, int businessId, int userId)
@@ -163,10 +168,11 @@ public class OrderService
             return null;
         }
 
-        // Cannot update paid or cancelled orders
-        if (order.Status == OrderStatus.Paid || order.Status == OrderStatus.Cancelled)
+        // Validate order can be modified
+        var validation = await _validationService.ValidateOrderForModificationAsync(orderId, businessId);
+        if (!validation.IsValid)
         {
-            throw new InvalidOperationException("Cannot update paid or cancelled orders");
+            throw new InvalidOperationException(validation.ErrorMessage ?? "Order cannot be modified");
         }
 
         // Update spot if provided
@@ -175,10 +181,16 @@ public class OrderService
             order.SpotId = request.SpotId.Value;
         }
 
-        // Update status if provided
+        // Update status if provided (with validation)
         if (!string.IsNullOrEmpty(request.Status))
         {
-            order.Status = Enum.Parse<OrderStatus>(request.Status, true);
+            var newStatus = Enum.Parse<OrderStatus>(request.Status, true);
+            var statusValidation = _validationService.ValidateStatusTransition(order.Status, newStatus);
+            if (!statusValidation.IsValid)
+            {
+                throw new InvalidOperationException(statusValidation.ErrorMessage ?? "Invalid status transition");
+            }
+            order.Status = newStatus;
         }
 
         // Update items if provided
@@ -230,6 +242,92 @@ public class OrderService
         // Total is calculated property: SubTotal - Discount + Tax
 
         order.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return MapToOrderResponse(order);
+    }
+
+    /// <summary>
+    /// Place an order (transition from Draft to Placed)
+    /// Based on Section 4 of ORDER_MANAGEMENT_PLAN.md
+    /// </summary>
+    public async Task<OrderResponse?> PlaceOrderAsync(int orderId, int businessId)
+    {
+        var order = await _context.Orders
+            .Where(o => o.Id == orderId && o.BusinessId == businessId)
+            .Include(o => o.Items)
+                .ThenInclude(i => i.Product)
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            return null;
+        }
+
+        // Validate order can be placed
+        var validation = await _validationService.ValidateOrderForPlacementAsync(orderId, businessId);
+        if (!validation.IsValid)
+        {
+            throw new InvalidOperationException(validation.ErrorMessage ?? "Order validation failed");
+        }
+
+        // Validate status transition
+        var statusValidation = _validationService.ValidateStatusTransition(order.Status, OrderStatus.Placed);
+        if (!statusValidation.IsValid)
+        {
+            throw new InvalidOperationException(statusValidation.ErrorMessage ?? "Invalid status transition");
+        }
+
+        // Transition to Placed status
+        order.Status = OrderStatus.Placed;
+        order.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return MapToOrderResponse(order);
+    }
+
+    /// <summary>
+    /// Cancel an order (transition to Cancelled status)
+    /// Based on Section 8 of ORDER_MANAGEMENT_PLAN.md
+    /// </summary>
+    public async Task<OrderResponse?> CancelOrderAsync(int orderId, int businessId, string? reason = null)
+    {
+        var order = await _context.Orders
+            .Where(o => o.Id == orderId && o.BusinessId == businessId)
+            .Include(o => o.Items)
+                .ThenInclude(i => i.Product)
+            .Include(o => o.Payments)
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            return null;
+        }
+
+        // Validate order can be cancelled
+        var validation = await _validationService.ValidateOrderForCancellationAsync(orderId, businessId);
+        if (!validation.IsValid)
+        {
+            throw new InvalidOperationException(validation.ErrorMessage ?? "Order cannot be cancelled");
+        }
+
+        // Validate status transition
+        var statusValidation = _validationService.ValidateStatusTransition(order.Status, OrderStatus.Cancelled);
+        if (!statusValidation.IsValid)
+        {
+            throw new InvalidOperationException(statusValidation.ErrorMessage ?? "Invalid status transition");
+        }
+
+        // Transition to Cancelled status
+        order.Status = OrderStatus.Cancelled;
+        order.UpdatedAt = DateTime.UtcNow;
+
+        // TODO: If order has payments, process refunds (if applicable)
+        // TODO: Reverse gift card deductions (if applicable)
+        // TODO: Release reserved inventory
+        // TODO: Release reserved time slots (for appointments)
 
         await _context.SaveChangesAsync();
 

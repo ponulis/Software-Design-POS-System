@@ -50,6 +50,35 @@ export default function PaymentDetails({ order }) {
     }
   }, [order]);
 
+  // Validate order before allowing payment (Business Flow: Order Validation)
+  const validateOrderForPayment = () => {
+    if (!orderDetails) {
+      return { valid: false, message: 'No order selected' };
+    }
+
+    // Validate order status (can only pay Draft or Placed orders)
+    if (orderDetails.status === 'Paid') {
+      return { valid: false, message: 'Order is already paid' };
+    }
+
+    if (orderDetails.status === 'Cancelled') {
+      return { valid: false, message: 'Order has been cancelled' };
+    }
+
+    // Validate order has items
+    if (!orderDetails.items || orderDetails.items.length === 0) {
+      return { valid: false, message: 'Order has no items. Cannot process payment.' };
+    }
+
+    // Validate order has valid total
+    const numericTotal = parseFloat(orderDetails.total || 0);
+    if (isNaN(numericTotal) || numericTotal <= 0) {
+      return { valid: false, message: 'Order total is invalid. Cannot process payment.' };
+    }
+
+    return { valid: true };
+  };
+
   const handleCancelPayment = () => {
     if (window.confirm('Are you sure you want to cancel this payment?')) {
       // TODO: Implement cancel payment logic
@@ -92,9 +121,16 @@ export default function PaymentDetails({ order }) {
   const handleProcessPayment = async () => {
     if (!orderDetails) return;
 
+    // Business Flow Step 1: Validate order (stock, schedule, status)
+    const validation = validateOrderForPayment();
+    if (!validation.valid) {
+      showErrorToast(`Order validation failed: ${validation.message}`);
+      return;
+    }
+
     const numericTotal = parseFloat(orderDetails.total || 0);
     
-    // Validate payment data based on payment type
+    // Business Flow Step 2: Validate payment data based on payment type
     if (selectedPaymentType === 'Cash') {
       if (!paymentData.cashReceived || paymentData.cashReceived < numericTotal) {
         showErrorToast('Please enter sufficient cash amount');
@@ -110,12 +146,19 @@ export default function PaymentDetails({ order }) {
         return;
       }
     } else if (selectedPaymentType === 'Card') {
+      // Business Flow: Card Payment Processing
+      // Step 1: Validate card details are entered
       if (!paymentData.paymentIntentId || !paymentData.clientSecret) {
         showErrorToast('Please wait for payment to initialize');
         return;
       }
       if (!cardPaymentHandler) {
         showErrorToast('Card payment handler not ready. Please wait.');
+        return;
+      }
+      // Step 2: Card should be confirmed (validated, funds checked, authorized)
+      if (!paymentData.isConfirmed) {
+        showErrorToast('Please confirm the card payment before processing');
         return;
       }
     }
@@ -129,7 +172,9 @@ export default function PaymentDetails({ order }) {
       let payment;
 
       if (selectedPaymentType === 'Card') {
-        // For Stripe card payments, use the card payment handler
+        // Business Flow: Card Payment Processing
+        // Step 3: Confirm payment (already validated card details, checked funds, authorized)
+        // Step 4: Create payment record
         if (!cardPaymentHandler || !paymentData.clientSecret) {
           throw new Error('Card payment not ready. Please wait for initialization.');
         }
@@ -152,11 +197,18 @@ export default function PaymentDetails({ order }) {
         payment = await paymentsApi.create(paymentRequest);
       }
 
+      // Business Flow: Payment Authorization Success
+      // Step 5: Payment successful - provide receipt
       showSuccessToast(`Payment processed successfully! Payment ID: ${payment.id}`);
       
       // Refresh order details
       const updatedOrder = await ordersApi.getById(orderDetails.id);
       setOrderDetails(updatedOrder);
+      
+      // Show receipt if order is fully paid
+      if (updatedOrder.status === 'Paid') {
+        setShowReceipt(true);
+      }
       
       // Reset payment data
       setPaymentData({
@@ -167,8 +219,19 @@ export default function PaymentDetails({ order }) {
         clientSecret: null,
       });
     } catch (err) {
+      // Business Flow: Payment Authorization Failure
+      // Distinguish between validation errors and payment failures
       const errorMessage = getErrorMessage(err);
-      showErrorToast(errorMessage);
+      const isValidationError = errorMessage.includes('validation') || 
+                                errorMessage.includes('invalid') ||
+                                errorMessage.includes('not found') ||
+                                errorMessage.includes('status');
+      
+      if (isValidationError) {
+        showErrorToast(`Order validation failed: ${errorMessage}`);
+      } else {
+        showErrorToast(`Payment failed: ${errorMessage}`);
+      }
       console.error('Payment processing error:', err);
     } finally {
       setProcessing(false);
@@ -189,8 +252,9 @@ export default function PaymentDetails({ order }) {
   const discounts = parseFloat(orderDetails.discount || 0);
   const total = parseFloat(orderDetails.total || 0);
 
-  // Only show payment options if order is not already paid
-  const canProcessPayment = orderDetails.status !== 'Paid' && orderDetails.status !== 'Cancelled';
+  // Business Flow: Only show payment options if order is validated and ready
+  const orderValidation = orderDetails ? validateOrderForPayment() : { valid: false };
+  const canProcessPayment = orderValidation.valid;
 
   return (
     <div className="flex flex-col gap-6 rounded-xl p-6 items-center">
@@ -305,27 +369,32 @@ export default function PaymentDetails({ order }) {
             total={total}
             orderStatus={orderDetails.status}
           />
+          
+          {/* Business Flow: Show validation error or order status */}
+          <div className={`w-full p-4 rounded-lg text-center ${
+            orderDetails.status === 'Paid' 
+              ? 'bg-green-50 text-green-800 border border-green-200' 
+              : orderDetails.status === 'Cancelled'
+              ? 'bg-red-50 text-red-800 border border-red-200'
+              : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+          }`}>
+            <p className="font-semibold mb-3">
+              {orderDetails.status === 'Paid' 
+                ? 'Order is Paid' 
+                : orderDetails.status === 'Cancelled'
+                ? 'Order is Cancelled'
+                : `Order cannot be processed: ${orderValidation.message || 'Invalid order state'}`}
+            </p>
+            {orderDetails.status === 'Paid' && (
+              <button
+                onClick={() => setShowReceipt(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+              >
+                View Receipt
+              </button>
+            )}
+          </div>
         </>
-      )}
-
-      {!canProcessPayment && (
-        <div className={`w-full p-4 rounded-lg text-center ${
-          orderDetails.status === 'Paid' 
-            ? 'bg-green-50 text-green-800 border border-green-200' 
-            : 'bg-red-50 text-red-800 border border-red-200'
-        }`}>
-          <p className="font-semibold mb-3">
-            Order is {orderDetails.status}
-          </p>
-          {orderDetails.status === 'Paid' && (
-            <button
-              onClick={() => setShowReceipt(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-            >
-              View Receipt
-            </button>
-          )}
-        </div>
       )}
 
       <ReceiptModal
