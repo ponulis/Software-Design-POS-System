@@ -100,7 +100,7 @@ builder.Services.AddSwaggerGen(c =>
 
 // Add Entity Framework
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
