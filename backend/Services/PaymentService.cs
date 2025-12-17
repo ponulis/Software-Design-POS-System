@@ -33,9 +33,17 @@ public class PaymentService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Business Flow: Payment Processing
+    /// Step 1: Validate order (stock, schedule, status)
+    /// Step 2: Calculate totals (discounts, taxes, service charges)
+    /// Step 3: Process payment (cash/card/gift card)
+    /// Step 4: Create payment record
+    /// Step 5: Mark order as Paid and deduct inventory (if fully paid)
+    /// </summary>
     public async Task<PaymentResponse?> CreatePaymentAsync(CreatePaymentRequest request, int businessId, int userId)
     {
-        // Validate order exists and belongs to business
+        // Business Flow: Step 1 - Validate order exists and belongs to business
         var order = await _context.Orders
             .Where(o => o.Id == request.OrderId && o.BusinessId == businessId)
             .Include(o => o.Items)
@@ -46,16 +54,21 @@ public class PaymentService
             throw new InvalidOperationException("Order not found or doesn't belong to your business");
         }
 
-        // Validate order for payment using comprehensive validation service
-        // Based on Section 3.1 of ORDER_MANAGEMENT_PLAN.md
+        // Business Flow: Step 1a - Validate order for payment (stock, schedule, status)
         var validation = await _validationService.ValidateOrderForPaymentAsync(request.OrderId, businessId);
         if (!validation.IsValid)
         {
+            _logger.LogWarning(
+                "Order validation failed: OrderId={OrderId}, Error={ErrorMessage}",
+                request.OrderId, validation.ErrorMessage);
             throw new InvalidOperationException(validation.ErrorMessage ?? "Order validation failed");
         }
 
-        // Recalculate order totals using PricingService before creating payment
-        // This ensures we have the latest tax and discount calculations
+        _logger.LogInformation(
+            "Order validated successfully: OrderId={OrderId}, Status={Status}",
+            request.OrderId, order.Status);
+
+        // Business Flow: Step 2 - Calculate totals (discounts, taxes, service charges)
         var orderTotals = await _pricingService.CalculateOrderTotalsAsync(order, null);
         
         // Update order totals if they differ from calculated values
@@ -68,6 +81,10 @@ public class PaymentService
             order.Discount = orderTotals.Discount;
             order.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+            
+            _logger.LogInformation(
+                "Order totals calculated: OrderId={OrderId}, SubTotal={SubTotal}, Tax={Tax}, Discount={Discount}, Total={Total}",
+                order.Id, order.SubTotal, order.Tax, order.Discount, order.Total);
         }
 
         // Calculate remaining balance after existing payments
@@ -97,11 +114,16 @@ public class PaymentService
         // Prevent duplicate payments
         await ValidatePaymentUniquenessAsync(request, paymentMethod, order.Id);
 
-        // Cash payment specific validation
+        // Business Flow: Step 3 - Process payment based on payment method
+        // Cash Payment Processing
         decimal? change = null;
         decimal? cashReceived = null;
         if (paymentMethod == PaymentMethod.Cash)
         {
+            _logger.LogInformation(
+                "Processing cash payment: OrderId={OrderId}, Amount={Amount}, RemainingBalance={RemainingBalance}",
+                request.OrderId, request.Amount, remainingBalance);
+            
             // For cash payments, CashReceived is required
             if (!request.CashReceived.HasValue)
             {
@@ -130,13 +152,23 @@ public class PaymentService
             }
 
             change = cashReceived - request.Amount;
+            
+            _logger.LogInformation(
+                "Cash payment validated: OrderId={OrderId}, CashReceived={CashReceived}, Amount={Amount}, Change={Change}",
+                request.OrderId, cashReceived, request.Amount, change);
         }
         else if (paymentMethod == PaymentMethod.Card)
         {
+            // Business Flow: Card Payment Processing
+            // Step 3a: Validate card details are entered (Customer inserts/swipes card)
+            _logger.LogInformation(
+                "Processing card payment: OrderId={OrderId}, Amount={Amount}, RemainingBalance={RemainingBalance}",
+                request.OrderId, request.Amount, remainingBalance);
+            
             // Mocked card payment: validate card details are provided
             if (request.CardDetails != null)
             {
-                // Validate card details
+                // Step 3b: Validate card details
                 if (string.IsNullOrWhiteSpace(request.CardDetails.CardNumber))
                 {
                     throw new InvalidOperationException("Card number is required for card payments");
@@ -150,15 +182,14 @@ public class PaymentService
                     throw new InvalidOperationException("CVV is required for card payments");
                 }
 
-                // Mock mode: Always accept card payment
-                // Following the flow diagram: Validate card details → Check available funds → Authorize transaction
-                // In mock mode, we always succeed
                 _logger.LogInformation(
-                    "Mock card payment: Validating card details for OrderId={OrderId}, Amount={Amount}, CardNumber={CardNumberMasked}",
+                    "Card details validated: OrderId={OrderId}, Amount={Amount}, CardNumber={CardNumberMasked}",
                     request.OrderId, request.Amount, MaskCardNumber(request.CardDetails.CardNumber));
 
-                // Simulate validation delay
-                await Task.Delay(100);
+                // Step 3c: Check available funds (mocked - always succeeds)
+                // Step 3d: Authorize transaction (mocked - always succeeds)
+                // In mock mode, we always succeed
+                await Task.Delay(100); // Simulate processing delay
 
                 // Mock: Always authorize the transaction
                 var mockTransactionId = $"txn_mock_{Guid.NewGuid():N}";
@@ -168,8 +199,8 @@ public class PaymentService
                 request.AuthorizationCode = mockAuthorizationCode;
                 
                 _logger.LogInformation(
-                    "Mock card payment: Payment authorized successfully. TransactionId={TransactionId}, AuthorizationCode={AuthorizationCode}",
-                    mockTransactionId, mockAuthorizationCode);
+                    "Card payment authorized successfully: OrderId={OrderId}, TransactionId={TransactionId}, AuthorizationCode={AuthorizationCode}",
+                    request.OrderId, mockTransactionId, mockAuthorizationCode);
             }
             else
             {
@@ -198,7 +229,7 @@ public class PaymentService
             }
         }
 
-        // Create payment record
+        // Business Flow: Step 4 - Create payment record
         var payment = new Payment
         {
             OrderId = request.OrderId,
@@ -222,7 +253,8 @@ public class PaymentService
             "Payment created: PaymentId={PaymentId}, OrderId={OrderId}, Amount={Amount}, Method={Method}, CreatedBy={CreatedBy}, PaidAt={PaidAt}, TransactionId={TransactionId}",
             payment.Id, payment.OrderId, payment.Amount, payment.Method, payment.CreatedBy, payment.PaidAt, payment.TransactionId);
 
-        // Check if order should be marked as Paid
+        // Business Flow: Step 5 - Check if order should be marked as Paid and deduct inventory
+        // For cash and card payments: When order is fully paid, mark as Paid and deduct inventory
         await UpdateOrderStatusIfFullyPaidAsync(order);
 
         return MapToPaymentResponse(payment, cashReceived, change);
@@ -772,8 +804,9 @@ public class PaymentService
     }
 
     /// <summary>
+    /// Business Flow: Payment Authorization Success
     /// Update order status to Paid if total payments equal or exceed order total
-    /// Deducts inventory when order becomes fully paid
+    /// Deducts inventory when order becomes fully paid (for cash and card payments)
     /// </summary>
     private async Task UpdateOrderStatusIfFullyPaidAsync(Order order)
     {
@@ -781,9 +814,14 @@ public class PaymentService
             .Where(p => p.OrderId == order.Id)
             .SumAsync(p => p.Amount);
 
+        // Business Flow: Step 5a - Check if order is fully paid
         if (totalPayments >= order.Total && order.Status != OrderStatus.Paid)
         {
             var previousStatus = order.Status;
+            
+            _logger.LogInformation(
+                "Order payment complete: OrderId={OrderId}, Total={Total}, TotalPayments={TotalPayments}, PreviousStatus={PreviousStatus}",
+                order.Id, order.Total, totalPayments, previousStatus);
             
             // Load order items with products for inventory deduction
             if (!_context.Entry(order).Collection(o => o.Items).IsLoaded)
@@ -795,18 +833,25 @@ public class PaymentService
                     .LoadAsync();
             }
 
+            // Business Flow: Step 5b - Mark order as Paid
             order.Status = OrderStatus.Paid;
             order.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            // Deduct inventory when order is fully paid
+            _logger.LogInformation(
+                "Order marked as Paid: OrderId={OrderId}, Status changed from {PreviousStatus} to Paid",
+                order.Id, previousStatus);
+
+            // Business Flow: Step 5c - Deduct inventory when order is fully paid
+            // This applies to cash and card payments - inventory is deducted immediately when order is paid
             if (_inventoryService != null)
             {
                 try
                 {
                     await _inventoryService.DeductInventoryForOrderAsync(order);
                     _logger.LogInformation(
-                        "Inventory deducted for OrderId={OrderId}", order.Id);
+                        "Inventory deducted successfully for OrderId={OrderId}. Order is Paid and inventory has been updated.",
+                        order.Id);
                 }
                 catch (Exception ex)
                 {
@@ -817,11 +862,17 @@ public class PaymentService
                     // In a production system, you might want to handle this differently
                 }
             }
+            else
+            {
+                _logger.LogWarning(
+                    "InventoryService not available. OrderId={OrderId} is marked as Paid but inventory was not deducted.",
+                    order.Id);
+            }
 
-            // Audit logging: Log order status change to Paid
+            // Audit logging: Log complete payment flow
             _logger.LogInformation(
-                "Order fully paid: OrderId={OrderId}, Total={Total}, TotalPayments={TotalPayments}, PreviousStatus={PreviousStatus}, NewStatus=Paid",
-                order.Id, order.Total, totalPayments, previousStatus);
+                "Payment flow completed: OrderId={OrderId}, Total={Total}, TotalPayments={TotalPayments}, Status=Paid, InventoryDeducted={InventoryDeducted}",
+                order.Id, order.Total, totalPayments, _inventoryService != null);
         }
         else if (totalPayments < order.Total && order.Status == OrderStatus.Paid)
         {
@@ -833,6 +884,13 @@ public class PaymentService
             _logger.LogWarning(
                 "Order payment status reverted: OrderId={OrderId}, Total={Total}, TotalPayments={TotalPayments}, Status changed from Paid to Pending",
                 order.Id, order.Total, totalPayments);
+        }
+        else if (totalPayments < order.Total)
+        {
+            // Partial payment - order remains in current status
+            _logger.LogInformation(
+                "Partial payment received: OrderId={OrderId}, Total={Total}, TotalPayments={TotalPayments}, RemainingBalance={RemainingBalance}, Status={Status}",
+                order.Id, order.Total, totalPayments, order.Total - totalPayments, order.Status);
         }
     }
 
