@@ -48,6 +48,18 @@ export default function PaymentDetails({ order }) {
     }
   }, [order]);
 
+  // Reset payment data when payment type changes
+  useEffect(() => {
+    setPaymentData({
+      cashReceived: null,
+      giftCardCode: null,
+      giftCardBalance: null,
+      cardDetails: null,
+      paymentIntentId: null,
+      clientSecret: null,
+    });
+  }, [selectedPaymentType]);
+
   // Validate order before allowing payment (Business Flow: Order Validation)
   const validateOrderForPayment = () => {
     if (!orderDetails) {
