@@ -9,7 +9,7 @@ import { paymentsApi } from "../../api/payments";
 import { useToast } from "../../context/ToastContext";
 import { getErrorMessage } from "../../utils/errorHandler";
 
-export default function PaymentDetails({ order }) {
+export default function PaymentDetails({ order, onPaymentSuccess }) {
   const [paymentMode, setPaymentMode] = useState('single'); // 'single' or 'split'
   const [selectedPaymentType, setSelectedPaymentType] = useState('Card');
   const [orderDetails, setOrderDetails] = useState(null);
@@ -126,6 +126,16 @@ export default function PaymentDetails({ order }) {
     // Refresh order details after split payment
     const refreshedOrder = await ordersApi.getById(orderDetails.id);
     setOrderDetails(refreshedOrder);
+    
+    // Notify parent component to refresh orders list
+    if (onPaymentSuccess) {
+      await onPaymentSuccess();
+    }
+    
+    // Show receipt if order is fully paid
+    if (refreshedOrder.status === 'Paid') {
+      setShowReceipt(true);
+    }
   };
 
   const handleProcessPayment = async () => {
@@ -206,6 +216,11 @@ export default function PaymentDetails({ order }) {
       // Refresh order details
       const updatedOrder = await ordersApi.getById(orderDetails.id);
       setOrderDetails(updatedOrder);
+      
+      // Notify parent component to refresh orders list
+      if (onPaymentSuccess) {
+        await onPaymentSuccess();
+      }
       
       // Show receipt if order is fully paid
       if (updatedOrder.status === 'Paid') {
