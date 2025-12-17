@@ -69,6 +69,8 @@ export default function CardCheckout({ total, items, orderId, onPaymentDataChang
   };
 
   const handleConfirmCard = async () => {
+    // Business Flow: Card Payment Processing
+    // Step 1: Validate card details are entered (Customer inserts/swipes card)
     if (!stripe || !elements || !paymentIntent) {
       showErrorToast('Payment not ready');
       return;
@@ -84,7 +86,10 @@ export default function CardCheckout({ total, items, orderId, onPaymentDataChang
     setCardError(null);
 
     try {
-      // Confirm payment intent with Stripe (but don't create payment record)
+      // Business Flow: Card Payment Processing
+      // Step 2: Employee notifies system to process card
+      // Step 3: System validates card details, checks available funds, and authorizes transaction
+      // (Stripe handles: validate card details → check available funds → authorize transaction)
       const { error: stripeError, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(
         paymentIntent.clientSecret,
         {
@@ -94,20 +99,22 @@ export default function CardCheckout({ total, items, orderId, onPaymentDataChang
         }
       );
 
+      // Business Flow: Payment Authorization Failure
       if (stripeError) {
         setCardError(stripeError.message || 'Payment failed');
         return;
       }
 
+      // Business Flow: Payment Authorization Success
       if (confirmedIntent.status !== 'succeeded' && confirmedIntent.status !== 'processing') {
         setCardError(`Payment status: ${confirmedIntent.status}`);
         return;
       }
 
       setIsConfirmed(true);
-      showSuccessToast('Card payment confirmed');
+      showSuccessToast('Card payment confirmed and authorized');
 
-      // Update payment data with confirmed status
+      // Update payment data with confirmed status (ready for payment record creation)
       if (onPaymentDataChange) {
         onPaymentDataChange({
           paymentIntentId: paymentIntent.paymentIntentId,

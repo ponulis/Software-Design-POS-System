@@ -223,14 +223,20 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
     };
 
     const handleProcessAllPayments = async () => {
-        // Validate all guests have payment methods
+        // Business Flow Step 1: Validate order (already validated in component mount)
+        if (!order || !order.id) {
+            showErrorToast("Order validation failed: Order information is missing");
+            return;
+        }
+
+        // Business Flow Step 2: Validate all guests have payment methods
         const guestsWithoutMethod = guests.filter(g => !g.paymentMethod);
         if (guestsWithoutMethod.length > 0) {
             showErrorToast("Please select payment methods for all guests");
             return;
         }
 
-        // Validate all items are assigned
+        // Business Flow Step 2: Validate all items are assigned
         const unassignedItems = items.filter((item, idx) => {
             const itemId = item.id || idx;
             const assignments = itemAssignments[itemId] || [];
@@ -242,12 +248,23 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
             return;
         }
 
-        // Validate totals match
+        // Business Flow Step 2: Validate totals match (Calculate totals step)
         const assignedTotal = calculateAssignedTotal();
         const totalDifference = Math.abs(assignedTotal - normalizedTotal);
         if (totalDifference > 0.01) {
             showErrorToast(`Assigned total (${formatCurrency(assignedTotal)}€) does not match order total (${formatCurrency(normalizedTotal)}€)`);
             return;
+        }
+
+        // Business Flow Step 3: Validate card payments are confirmed (Card Payment Processing)
+        for (const guest of guests) {
+            if (guest.paymentMethod === 'Card') {
+                const paymentData = guest.paymentData || {};
+                if (!paymentData.isConfirmed) {
+                    showErrorToast(`Card payment for Guest ${guests.indexOf(guest) + 1} must be confirmed before processing`);
+                    return;
+                }
+            }
         }
 
         setProcessingPayments(prev => {
@@ -257,21 +274,14 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
         });
 
         try {
-            // We need Stripe to confirm card payments
-            // Import Stripe at the top level - we'll use it from window if available
-            const loadStripe = async () => {
-                if (typeof window !== 'undefined' && window.Stripe) {
-                    return window.Stripe;
-                }
-                // Dynamic import if Stripe is not on window
-                const stripeModule = await import('@stripe/stripe-js');
-                return stripeModule.loadStripe;
-            };
-
             // Prepare split payment request
             const splitPayments = [];
 
-            // First, confirm all card payments with Stripe (without creating payment records)
+            // Business Flow: Card Payment Processing
+            // Step 1: Validate card details (already done via confirmation)
+            // Step 2: Check available funds (handled by Stripe)
+            // Step 3: Authorize transaction (handled by Stripe confirmation)
+            // Step 4: Create payment records
             for (const guest of guests) {
                 const guestTotal = guestTotals[guest.id];
                 const paymentData = guest.paymentData || {};
@@ -279,6 +289,10 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                 if (guest.paymentMethod === 'Card') {
                     if (!paymentData.clientSecret || !paymentData.paymentIntentId) {
                         throw new Error(`Card payment not ready for Guest ${guests.indexOf(guest) + 1}. Please ensure card details are entered and payment intent is created.`);
+                    }
+
+                    if (!paymentData.isConfirmed) {
+                        throw new Error(`Card payment for Guest ${guests.indexOf(guest) + 1} must be confirmed before processing`);
                     }
 
                     splitPayments.push({
@@ -296,12 +310,13 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                 }
             }
 
-            // Create split payments (backend will create payment records for all)
+            // Business Flow: Create split payments (backend validates and creates payment records)
             const response = await paymentsApi.createSplitPayments({
                 orderId: order?.id,
                 payments: splitPayments
             });
 
+            // Business Flow: Payment Authorization Success
             showSuccessToast(`Split payment processed successfully! All ${response.payments.length} payments completed.`);
             
             // Update payment statuses
@@ -314,8 +329,21 @@ export default function SplitPayment({ order, items, subtotal, taxes, discounts,
                 onPaymentComplete(response.order);
             }
         } catch (err) {
+            // Business Flow: Payment Authorization Failure
+            // Distinguish between validation errors and payment failures
             const errorMessage = getErrorMessage(err);
-            showErrorToast(errorMessage);
+            const isValidationError = errorMessage.includes('validation') || 
+                                    errorMessage.includes('invalid') ||
+                                    errorMessage.includes('not found') ||
+                                    errorMessage.includes('status') ||
+                                    errorMessage.includes('not ready') ||
+                                    errorMessage.includes('must be confirmed');
+            
+            if (isValidationError) {
+                showErrorToast(`Order validation failed: ${errorMessage}`);
+            } else {
+                showErrorToast(`Payment failed: ${errorMessage}`);
+            }
             console.error('Split payment error:', err);
         } finally {
             setProcessingPayments(prev => {

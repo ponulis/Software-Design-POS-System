@@ -214,6 +214,77 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>
+    /// Place an order (transition from Draft to Placed)
+    /// Based on Section 4 of ORDER_MANAGEMENT_PLAN.md
+    /// </summary>
+    /// <param name="orderId">Order ID</param>
+    /// <returns>Updated order with Placed status</returns>
+    [HttpPost("{orderId}/place")]
+    [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PlaceOrder(int orderId)
+    {
+        try
+        {
+            var businessId = User.GetBusinessId() ?? throw new UnauthorizedAccessException("Business ID not found in token");
+            var order = await _orderService.PlaceOrderAsync(orderId, businessId);
+
+            if (order == null)
+            {
+                return NotFound(new { message = "Order not found" });
+            }
+
+            return Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error placing order");
+            return StatusCode(500, new { message = "An error occurred while placing the order" });
+        }
+    }
+
+    /// <summary>
+    /// Cancel an order (transition to Cancelled status)
+    /// Based on Section 8 of ORDER_MANAGEMENT_PLAN.md
+    /// </summary>
+    /// <param name="orderId">Order ID</param>
+    /// <param name="request">Optional cancellation reason</param>
+    /// <returns>Updated order with Cancelled status</returns>
+    [HttpPost("{orderId}/cancel")]
+    [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CancelOrder(int orderId, [FromBody] CancelOrderRequest? request = null)
+    {
+        try
+        {
+            var businessId = User.GetBusinessId() ?? throw new UnauthorizedAccessException("Business ID not found in token");
+            var order = await _orderService.CancelOrderAsync(orderId, businessId, request?.Reason);
+
+            if (order == null)
+            {
+                return NotFound(new { message = "Order not found" });
+            }
+
+            return Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling order");
+            return StatusCode(500, new { message = "An error occurred while cancelling the order" });
+        }
+    }
+
+    /// <summary>
     /// Delete (cancel) an order
     /// </summary>
     [HttpDelete("{orderId}")]
