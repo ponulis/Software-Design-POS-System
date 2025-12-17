@@ -3,7 +3,6 @@ import PaymentButton from "./PaymentButton";
 import OrderDetails from "./OrderDetails";
 import CheckoutDetails from "./CheckoutDetails";
 import SplitPayment from "./SplitPayment";
-import ReceiptModal from "../receipts/ReceiptModal";
 import { ordersApi } from "../../api/orders";
 import { paymentsApi } from "../../api/payments";
 import { useToast } from "../../context/ToastContext";
@@ -23,7 +22,6 @@ export default function PaymentDetails({ order, onPaymentSuccess }) {
     clientSecret: null,
   });
   const [processing, setProcessing] = useState(false);
-  const [showReceipt, setShowReceipt] = useState(false);
   const { success: showSuccessToast, error: showErrorToast } = useToast();
 
   // Fetch full order details if order ID is provided
@@ -131,11 +129,6 @@ export default function PaymentDetails({ order, onPaymentSuccess }) {
     if (onPaymentSuccess) {
       await onPaymentSuccess();
     }
-    
-    // Show receipt if order is fully paid
-    if (refreshedOrder.status === 'Paid') {
-      setShowReceipt(true);
-    }
   };
 
   const handleProcessPayment = async () => {
@@ -220,11 +213,6 @@ export default function PaymentDetails({ order, onPaymentSuccess }) {
       // Notify parent component to refresh orders list
       if (onPaymentSuccess) {
         await onPaymentSuccess();
-      }
-      
-      // Show receipt if order is fully paid
-      if (updatedOrder.status === 'Paid') {
-        setShowReceipt(true);
       }
       
       // Reset payment data
